@@ -75,6 +75,6 @@ def load(initial: bool = False):
                         opts: Config = Config.from_dict(loads)
                         return opts
             opts: Config = Config.from_dict(loads)
-            os.environ['http_proxy'] = opts.proxy.http
-            os.environ['https_proxy'] = opts.proxy.https
+            # os.environ['http_proxy'] = opts.proxy.http
+            # os.environ['https_proxy'] = opts.proxy.https
             return opts

@@ -1,2 +1,12 @@
 
 .idea/
+
+*.session
+
+*.session-journal
+
+env_config.yml
+
+log/
+
+__pycache__/

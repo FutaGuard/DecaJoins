@@ -13,8 +13,8 @@ def main():
         q = dns.message.make_query(qname, dns.rdatatype.A)
         r = dns.query.https(q, where, session=client)
         # for answer in r.answer:
-        f = r.answer[0]
-        print(f.name)
+        f = r.to_text()
+        print(f)
 
 
 if __name__ == '__main__':

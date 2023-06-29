@@ -12,4 +12,5 @@
 from bot import Bot
 
 if __name__ == '__main__':
-    Bot().run()
+    bot: Bot = Bot()
+    bot.start_serve()
