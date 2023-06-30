@@ -16,6 +16,27 @@ import dns.asyncquery
 import httpx
 
 
+class ArgumentParser(argparse.ArgumentParser):
+    def _get_action_from_name(self, name):
+        """Given a name, get the Action instance registered with this parser.
+        If only it were made available in the ArgumentError object. It is
+        passed as it's first arg...
+        """
+        container = self._actions
+        if name is None:
+            return None
+        for action in container:
+            if '/'.join(action.option_strings) == name:
+                return action
+            elif action.metavar == name:
+                return action
+            elif action.dest == name:
+                return action
+
+    def error(self, message):
+        pass
+
+
 @dataclass_json
 @dataclass
 class Args:
@@ -25,7 +46,7 @@ class Args:
 
 
 def parse_args(string: List[str]) -> Args:
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument('-s', type=str, help='some doh', required=False,
                         default='https://doh.futa.gg/dns-query')
     parser.add_argument('-q', type=str, help='some domain', required=False)
@@ -83,5 +104,5 @@ async def doh(_, message: Message):
     text = '🔍 查詢結果:\n' \
            '<code>{result}</code>\n\n' \
            '⏳ 耗時: {cons}'.format(result=escape(result.to_text()),
-                                    cons=f'{end}s' if end >= 1000 else f'{end*1000}ms')
+                                   cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms')
     await message.reply_text(text)
