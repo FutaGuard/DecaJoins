@@ -12,8 +12,6 @@ import dns.rdatatype
 import dns.asyncquery
 import time
 from html import escape
-import dns.asyncquery
-import httpx
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -47,7 +45,7 @@ class Args:
 
 def parse_args(string: List[str]) -> Args:
     parser = ArgumentParser()
-    parser.add_argument('-s', type=str, help='some doh', required=False,
+    parser.add_argument('-s', type=str, help='some server', required=False,
                         default='https://doh.futa.gg/dns-query')
     parser.add_argument('-q', type=str, help='some domain', required=False)
     parser.add_argument('-t', type=str, help='some type', required=False, default='A')
@@ -60,7 +58,7 @@ async def cmd_help(_, __, message: Message):
     cmd = message.text.split(' ')[1:]
     args = parse_args(cmd)
 
-    text = '使用方式: /doh -s <doh> -q <domain> -t <type>\n'
+    text = '使用方式: /dig -s <udp ip> -q <domain> -t <type>\n'
     pass_flag = True
 
     if not args.query:
@@ -71,8 +69,10 @@ async def cmd_help(_, __, message: Message):
         text += '-t type 參數錯誤\n'
         pass_flag = False
 
-    if not validators.url(args.server):
-        text += '-s DoH 伺服器格式錯誤\n'
+    if validators.ipv4(args.server) or validators.ipv6(args.server):
+        pass
+    else:
+        text += '-s UDP IP 伺服器格式錯誤\n'
         pass_flag = False
 
     if validators.url(args.query):
@@ -85,21 +85,18 @@ async def cmd_help(_, __, message: Message):
     return True
 
 
-async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
-    # s = requests.Session()
-    async with httpx.AsyncClient() as client:
-        return await dns.asyncquery.https(
-            q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
-            where=server,
-            client=client)
+async def dig_query(server: str, query: str, types: str) -> dns.message.Message:
+    return await dns.asyncquery.udp(
+        q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
+        where=server)
 
 
-@Client.on_message(filters.command('doh') & filters.create(cmd_help))
+@Client.on_message(filters.command('dig') & filters.create(cmd_help))
 async def doh(_, message: Message):
     cmd = message.text.split(' ')[1:]
     args = parse_args(cmd)
     start = time.time()
-    result = await doh_query(args.server, args.query, args.type.upper())
+    result = await dig_query(args.server, args.query, args.type.upper())
     end = round(time.time() - start, 2)
     text = '🔍 查詢結果:\n' \
            '<code>{result}</code>\n\n' \
