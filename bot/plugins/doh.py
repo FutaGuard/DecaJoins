@@ -9,8 +9,11 @@ import validators
 import dns.message
 import dns.query
 import dns.rdatatype
-import requests
+import dns.asyncquery
+# import requests
 from html import escape
+import dns.asyncquery
+import httpx
 
 
 @dataclass_json
@@ -62,16 +65,16 @@ async def cmd_help(_, __, message: Message):
 
 
 async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
-    s = requests.Session()
-    with s as client:
-        return dns.query.https(
+    # s = requests.Session()
+    async with httpx.AsyncClient() as client:
+        return await dns.asyncquery.https(
             q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
             where=server,
-            session=client)
+            client=client)
 
 
 @Client.on_message(filters.command('doh') & filters.create(cmd_help))
-async def doh(client: Client, message: Message):
+async def doh(_, message: Message):
     cmd = message.text.split(' ')[1:]
     args = parse_args(cmd)
     result = await doh_query(args.server, args.query, args.type.upper())
