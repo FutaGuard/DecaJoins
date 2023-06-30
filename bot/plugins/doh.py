@@ -10,7 +10,7 @@ import dns.message
 import dns.query
 import dns.rdatatype
 import dns.asyncquery
-# import requests
+import time
 from html import escape
 import dns.asyncquery
 import httpx
@@ -77,7 +77,11 @@ async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
 async def doh(_, message: Message):
     cmd = message.text.split(' ')[1:]
     args = parse_args(cmd)
+    start = time.time()
     result = await doh_query(args.server, args.query, args.type.upper())
+    end = round(time.time() - start, 2)
     text = '🔍 查詢結果:\n' \
-           '<code>{}</code>\n'.format(escape(result.to_text()))
+           '<code>{result}</code>\n\n' \
+           '⏳ 耗時: {cons}'.format(result=escape(result.to_text()),
+                                    cons=f'{end}s' if end >= 1000 else f'{end*1000}ms')
     await message.reply_text(text)
