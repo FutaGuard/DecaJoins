@@ -16,10 +16,6 @@ from html import escape
 
 class ArgumentParser(argparse.ArgumentParser):
     def _get_action_from_name(self, name):
-        """Given a name, get the Action instance registered with this parser.
-        If only it were made available in the ArgumentError object. It is
-        passed as it's first arg...
-        """
         container = self._actions
         if name is None:
             return None
@@ -41,6 +37,7 @@ class Args:
     server: Optional[str] = field(metadata=config(field_name='s'))
     query: Optional[str] = field(metadata=config(field_name='q'))
     type: Optional[str] = field(metadata=config(field_name='t'))
+    benchmark: Optional[int] = field(metadata=config(field_name='b'))
 
 
 def parse_args(string: List[str]) -> Args:
@@ -49,6 +46,7 @@ def parse_args(string: List[str]) -> Args:
                         default='https://doh.futa.gg/dns-query')
     parser.add_argument('-q', type=str, help='some domain', required=False)
     parser.add_argument('-t', type=str, help='some type', required=False, default='A')
+    parser.add_argument('-b', type=int, help='benchmark', required=False, default=None)
     return Args.from_dict(vars(parser.parse_args(string)))
 
 
@@ -79,6 +77,10 @@ async def cmd_help(_, __, message: Message):
         text += '-q query 網域格式錯誤\n'
         pass_flag = False
 
+    if args.benchmark and not validators.between(int(args.benchmark), min=2, max=30):
+        text += '-b benchmark 次數設定錯誤\n'
+        pass_flag = False
+
     if not pass_flag:
         await message.reply_text(text)
         return False
@@ -102,4 +104,20 @@ async def doh(_, message: Message):
            '<code>{result}</code>\n\n' \
            '⏳ 快樂錶: {cons}'.format(result=escape(result.to_text()),
                                    cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms')
+    if not args.benchmark:
+        text += '⏳ 快樂錶: {cons}'.format(cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms')
+    else:
+        text += '🏁 測試結果: \n'
+        average = 0.0
+        for i in range(1, args.benchmark+1):
+            start = time.time()
+            await dig_query(args.server, args.query, args.type.upper())
+            end = round(time.time() - start, 2)
+            average += end
+            text += '{t}. - <code>{cons}</code>\n'.format(
+                t=i,
+                cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms'
+            )
+        a_ = round(average / args.benchmark, 3)
+        text += '\n🤌 平均: <code>{average}</code>'.format(average=f'{a_}s' if a_ >= 1000 else f'{a_ * 1000}ms')
     await message.reply_text(text)
