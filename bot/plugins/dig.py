@@ -38,6 +38,7 @@ class Args:
     query: Optional[str] = field(metadata=config(field_name='q'))
     type: Optional[str] = field(metadata=config(field_name='t'))
     benchmark: Optional[int] = field(metadata=config(field_name='b'))
+    raw: Optional[bool] = field(metadata=config(field_name='R'))
 
 
 def parse_args(string: List[str]) -> Args:
@@ -47,6 +48,8 @@ def parse_args(string: List[str]) -> Args:
     parser.add_argument('-q', type=str, help='some domain', required=False)
     parser.add_argument('-t', type=str, help='some type', required=False, default='A')
     parser.add_argument('-b', type=int, help='benchmark', required=False, default=None)
+    parser.add_argument('-R', type=bool, help='raw', required=False, default=False,
+                        action=argparse.BooleanOptionalAction)
     return Args.from_dict(vars(parser.parse_args(string)))
 
 
@@ -100,16 +103,19 @@ async def doh(_, message: Message):
     start = time.time()
     result = await dig_query(args.server, args.query, args.type.upper())
     end = round(time.time() - start, 2)
-    text = '🔍 查詢結果:\n' \
-           '<code>{result}</code>\n\n' \
-           '⏳ 快樂錶: {cons}'.format(result=escape(result.to_text()),
-                                   cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms')
+    text = '🔍 查詢結果:\n'
+    if args.raw:
+        text += '<code>{result}</code>\n\n'.format(result=escape(result.to_text()))
+    else:
+        for i in result.answer:
+            text += '<code>{result}</code>\n\n'.format(result=escape(i.to_text()))
+
     if not args.benchmark:
         text += '⏳ 快樂錶: {cons}'.format(cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms')
     else:
         text += '🏁 測試結果: \n'
         average = 0.0
-        for i in range(1, args.benchmark+1):
+        for i in range(1, args.benchmark + 1):
             start = time.time()
             await dig_query(args.server, args.query, args.type.upper())
             end = round(time.time() - start, 2)
