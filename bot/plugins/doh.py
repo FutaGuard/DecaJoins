@@ -1,36 +1,21 @@
+import argparse
+import time
+from dataclasses import dataclass, field
+from html import escape
 from typing import List, Optional
 
-from pyrogram import Client, filters
-from pyrogram.types import Message
-import argparse
-from dataclasses import dataclass, field
-from dataclasses_json import config, dataclass_json
-import validators
+import dns.asyncquery
+import dns.asyncquery
 import dns.message
 import dns.query
 import dns.rdatatype
-import dns.asyncquery
-import time
-from html import escape
-import dns.asyncquery
 import httpx
+import validators
+from dataclasses_json import config, dataclass_json
+from pyrogram import Client, filters
+from pyrogram.types import Message
 
-
-class ArgumentParser(argparse.ArgumentParser):
-    def _get_action_from_name(self, name):
-        container = self._actions
-        if name is None:
-            return None
-        for action in container:
-            if '/'.join(action.option_strings) == name:
-                return action
-            elif action.metavar == name:
-                return action
-            elif action.dest == name:
-                return action
-
-    def error(self, message):
-        pass
+from bot.utils import ArgumentParser
 
 
 @dataclass_json
@@ -119,7 +104,7 @@ async def doh(_, message: Message):
     else:
         text += '🏁 測試結果: \n'
         average = 0.0
-        for i in range(1, args.benchmark+1):
+        for i in range(1, args.benchmark + 1):
             start = time.time()
             await doh_query(args.server, args.query, args.type.upper())
             end = round(time.time() - start, 2)

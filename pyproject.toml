@@ -16,6 +16,8 @@ dnspython = "^2.3.0"
 requests-toolbelt = "^1.0.0"
 parse = "^1.19.1"
 validators = "^0.20.0"
+httpx = "^0.24.1"
+aioquic = "^0.9.20"
 
 [tool.poetry.dev-dependencies]
 
