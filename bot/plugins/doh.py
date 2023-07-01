@@ -52,6 +52,10 @@ async def cmd_help(_, __, message: Message):
     if not args.query:
         text += '缺少 -q 參數\n'
         pass_flag = False
+    else:
+        if validators.url(args.query):
+            text += '-q query 網域格式錯誤\n'
+            pass_flag = False
 
     if args.type.upper() not in ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT']:
         text += '-t type 參數錯誤\n'
@@ -59,10 +63,6 @@ async def cmd_help(_, __, message: Message):
 
     if not validators.url(args.server):
         text += '-s DoH 伺服器格式錯誤\n'
-        pass_flag = False
-
-    if validators.url(args.query):
-        text += '-q query 網域格式錯誤\n'
         pass_flag = False
 
     if args.benchmark and not validators.between(int(args.benchmark), min=2, max=30):
