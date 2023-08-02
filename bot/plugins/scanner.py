@@ -3,7 +3,7 @@
 # Google SafeBrowsing -> Result
 # Microsoft SmartScreen -> Result
 # ReScan.pro -> Result
-from aiohttp import ClientSession
+# from aiohttp import ClientSession
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
