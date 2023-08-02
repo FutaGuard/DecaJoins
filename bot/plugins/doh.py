@@ -89,7 +89,11 @@ async def doh(_, message: Message):
     cmd = message.text.split(' ')[1:]
     args = parse_args(cmd)
     start = time.time()
-    result = await doh_query(args.server, args.query, args.type.upper())
+    try:
+        result = await doh_query(args.server, args.query, args.type.upper())
+    except ValueError:
+        await message.reply_text('查詢錯誤，請先檢查 -s 參數是否正確')
+        return
     end = round(time.time() - start, 2)
 
     text = '🔍 查詢結果:\n'
