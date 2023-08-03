@@ -29,15 +29,15 @@ class Config:
 
     @dataclass_json
     @dataclass
-    class Proxy:
-        tw_http: str = field(hash=False, repr=True, compare=False, default=None)
-        tw_https: str = field(hash=False, repr=True, compare=False, default=None)
+    class Slave:
+        enable: bool = field(hash=False, repr=True, compare=False, default=None)
+        name: str = field(hash=False, repr=True, compare=False, default=None)
 
     dev_mode: bool = field(hash=False, repr=True, compare=False, default=None)
     bot: Bot = Bot
     log: Log = Log
     admin: int = 5440674042
-    proxy: Proxy = Proxy
+    slave: Slave = Slave
 
 
 def load(initial: bool = False):
