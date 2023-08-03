@@ -65,14 +65,15 @@ class Bot(Client):
             logger.error('ipinfo API Error')
             return None
         else:
-            ip = info['ip'].split(',')
+            ip = info['ip'].split('.')
             ip[-1] = '0'
             ip[-2] = '0'
             self.slave = Slave(
-                ip=ip,
+                ip='.'.join(e for e in ip),
                 asn=info['org'],
                 region=info['region']
             )
+            logger.info(self.slave)
 
     async def __self_test(self):
         # Disable notice
@@ -90,6 +91,11 @@ class Bot(Client):
 
         try:
             await self.__get_me()
+        except Exception as e:
+            logger.exception(e)
+            sys.exit(1)
+        try:
+            await self.__get_slave()
         except Exception as e:
             logger.exception(e)
             sys.exit(1)

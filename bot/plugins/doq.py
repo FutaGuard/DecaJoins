@@ -15,8 +15,12 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from bot.utils import ArgumentParser, watchlog
+from bot import Bot
+from bot import config as bot_config
+
 
 logger = watchlog(__name__)
+opt = bot_config.load()
 
 
 @dataclass_json
@@ -96,16 +100,25 @@ async def quick_resolve(qname: str) -> str:
 
 
 @Client.on_message(filters.command('doq') & filters.create(cmd_help))
-async def doh(_, message: Message):
+async def doh(client: Bot, message: Message):
     cmd = message.text.split(' ')[1:]
     args = parse_args(cmd)
     ip = await quick_resolve(args.server[7:])
 
     start = time.time()
     result = await doq_query(ip, args.port, args.query, args.type.upper())
-    end = (time.time() - start)*1000
-
-    text = '🔍 查詢結果:\n'
+    end = (time.time() - start) * 1000
+    text = ''
+    if opt.slave.enable:
+        text += '🔍 子節點查詢結果:\n\n'
+        text += '📍 <code>{name} ({region})</code>\n<code>{ip}（{asn}）</code>\n\n'.format(
+            name=escape(opt.slave.name),
+            ip=client.slave.ip,
+            asn=escape(client.slave.asn),
+            region=escape(client.slave.region)
+        )
+    else:
+        text += '🔍 查詢結果:\n'
     if args.raw:
         text += '<code>{result}</code>\n\n'.format(result=escape(result.to_text()))
     else:
@@ -120,12 +133,13 @@ async def doh(_, message: Message):
         for i in range(1, args.benchmark + 1):
             start = time.time()
             await doq_query(ip, args.port, args.query, args.type.upper())
-            end = round(time.time() - start, 2)
+            end = (time.time() - start) * 1000
             average += end
             text += '{t}. - <code>{cons}</code>\n'.format(
                 t=i,
-                cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms'
+                cons=f'{round(end / 1000, 2)}s' if end >= 1000 else f'{round(end, 2)}ms'
             )
         a_ = round(average / args.benchmark, 3)
-        text += '\n🤌 平均: <code>{average}</code>'.format(average=f'{a_}s' if a_ >= 1000 else f'{a_ * 1000}ms')
+        text += '\n🤌 平均: <code>{average}</code>'.format(
+            average=f'{round(a_ / 1000, 2)}s' if a_ >= 1000 else f'{round(a_, 2)}ms')
     await message.reply_text(text)
