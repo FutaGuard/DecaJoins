@@ -87,7 +87,7 @@ async def doh(_, message: Message):
     args = parse_args(cmd)
     start = time.time()
     result = await dig_query(args.server, args.query, args.type.upper())
-    end = round(time.time() - start, 2)
+    end = (time.time() - start)*1000
     text = '🔍 查詢結果:\n'
     if args.raw:
         text += '<code>{result}</code>\n\n'.format(result=escape(result.to_text()))
@@ -96,7 +96,7 @@ async def doh(_, message: Message):
             text += '<code>{result}</code>\n\n'.format(result=escape(i.to_text()))
 
     if not args.benchmark:
-        text += '⏳ 快樂錶: {cons}'.format(cons=f'{end}s' if end >= 1000 else f'{end * 1000}ms')
+        text += '⏳ 快樂錶: {cons}'.format(cons=f'{round(end/1000, 2)}s' if end >= 1000 else f'{round(end, 2)}ms')
     else:
         text += '🏁 測試結果: \n'
         average = 0.0
