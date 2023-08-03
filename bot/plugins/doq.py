@@ -16,11 +16,9 @@ from pyrogram.types import Message
 
 from bot.utils import ArgumentParser, watchlog
 from bot import Bot
-from bot import config as bot_config
 
 
 logger = watchlog(__name__)
-opt = bot_config.load()
 
 
 @dataclass_json
@@ -109,6 +107,7 @@ async def doh(client: Bot, message: Message):
     result = await doq_query(ip, args.port, args.query, args.type.upper())
     end = (time.time() - start) * 1000
     text = ''
+    opt = client.config
     if opt.slave.enable:
         text += '🔍 子節點查詢結果:\n\n'
         text += '📍 <code>{name} ({region})</code>\n<code>{ip}（{asn}）</code>\n\n'.format(

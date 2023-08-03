@@ -8,13 +8,12 @@ from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
 from pyrogram.session import Session
 from pyrogram.types import User
 
-from bot import config
+from bot.config import Config, get_config
 from bot.utils import watchlog
 import httpx
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 
-opt = config.load(initial=True)
 logger = watchlog(__name__)
 
 
@@ -27,16 +26,17 @@ class Slave:
 
 class Bot(Client):
     _instance: Union[None, "Bot"] = None
-    me: Optional[User] = None
     slave: Optional[Slave] = None
+    config: Config
 
     def __init__(self):
+        self.config = config = get_config()
         super().__init__(
             name='bot',
-            api_id=opt.bot.api_id,
-            api_hash=opt.bot.api_hash,
-            bot_token=opt.bot.bot_token,
-            plugins=dict(root='bot/plugins')
+            api_id=config.bot.api_id,
+            api_hash=config.bot.api_hash,
+            bot_token=config.bot.bot_token,
+            plugins=dict(root='bot/plugins'),
         )
 
     def __new__(cls, *args, **kwargs):
@@ -55,7 +55,7 @@ class Bot(Client):
         self.me: User = me
 
     async def __get_slave(self):
-        if not opt.slave.enable:
+        if not self.config.slave.enable:
             return None
         r = httpx.get('https://ipinfo.io')
         info: Optional[dict] = None
@@ -100,10 +100,6 @@ class Bot(Client):
             logger.exception(e)
             sys.exit(1)
         await self.stop()
-
-    @property
-    def config(self) -> config.Config:
-        return opt
 
     def start_serve(self):
         loop: AbstractEventLoop = asyncio.get_event_loop()

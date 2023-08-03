@@ -1,13 +1,13 @@
 import logging
 import os
+from typing import Optional
 
 import coloredlogs
 
-from bot import config
+from bot.config import get_config
 
-opts = config.load()
 
-def watchlog(name: str, level: str = None) -> logging.getLogger:
+def watchlog(name: str, level: Optional[str] = None):
     """
     :param name: default to __name__
     :type name: str
@@ -46,7 +46,8 @@ def watchlog(name: str, level: str = None) -> logging.getLogger:
 
     # colored
     if not level:
-        level = opts.log.level
+        config = get_config()
+        level = config.log.level
 
     coloredlogs.install(logger=logger, level=level)
     return logger

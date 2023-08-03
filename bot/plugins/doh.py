@@ -15,11 +15,8 @@ from dataclasses_json import config, dataclass_json
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from bot import config as bot_config
 from bot import Bot
 from bot.utils import ArgumentParser
-
-opt = bot_config.load()
 
 
 @dataclass_json
@@ -100,6 +97,7 @@ async def doh(client: Bot, message: Message):
         return
     end = (time.time() - start)*1000
     text = ''
+    opt = client.config
     if opt.slave.enable:
         text += '🔍 子節點查詢結果:\n\n'
         text += '📍 <code>{name} ({region})</code>\n<code>{ip}（{asn}）</code>\n\n'.format(
