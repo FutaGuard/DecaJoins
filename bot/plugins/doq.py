@@ -1,5 +1,6 @@
 import argparse
 import time
+from asyncio import sleep
 from dataclasses import dataclass, field
 from html import escape
 from typing import List, Optional
@@ -142,4 +143,6 @@ async def doh(client: Bot, message: Message):
         a_ = round(average / args.benchmark, 3)
         text += '\n🤌 平均: <code>{average}</code>'.format(
             average=f'{round(a_ / 1000, 2)}s' if a_ >= 1000 else f'{round(a_, 2)}ms')
+    if opt.slave.enable:
+        await sleep(1)
     await message.reply_text(text)
