@@ -10,14 +10,25 @@ from pyrogram.types import User
 
 from bot import config
 from bot.utils import watchlog
+import httpx
+from dataclasses import dataclass
+from json.decoder import JSONDecodeError
 
 opt = config.load(initial=True)
 logger = watchlog(__name__)
 
 
+@dataclass
+class Slave:
+    ip: str
+    asn: str
+    region: str
+
+
 class Bot(Client):
     _instance: Union[None, "Bot"] = None
     me: Optional[User] = None
+    slave: Optional[Slave] = None
 
     def __init__(self):
         super().__init__(
@@ -43,6 +54,27 @@ class Bot(Client):
         logger.info(info_str)
         self.me: User = me
 
+    async def __get_slave(self):
+        if not opt.slave.enable:
+            return None
+        r = httpx.get('https://ipinfo.io')
+        info: Optional[dict] = None
+        try:
+            info = r.json()
+        except JSONDecodeError:
+            logger.error('ipinfo API Error')
+            return None
+        else:
+            ip = info['ip'].split('.')
+            ip[-1] = '0'
+            ip[-2] = '0'
+            self.slave = Slave(
+                ip='.'.join(e for e in ip),
+                asn=info['org'],
+                region=info['region']
+            )
+            logger.info(self.slave)
+
     async def __self_test(self):
         # Disable notice
         Session.notice_displayed = True
@@ -59,6 +91,11 @@ class Bot(Client):
 
         try:
             await self.__get_me()
+        except Exception as e:
+            logger.exception(e)
+            sys.exit(1)
+        try:
+            await self.__get_slave()
         except Exception as e:
             logger.exception(e)
             sys.exit(1)
