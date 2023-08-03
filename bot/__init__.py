@@ -65,8 +65,11 @@ class Bot(Client):
             logger.error('ipinfo API Error')
             return None
         else:
+            ip = info['ip'].split(',')
+            ip[-1] = '0'
+            ip[-2] = '0'
             self.slave = Slave(
-                ip=info['ip'],
+                ip=ip,
                 asn=info['org'],
                 region=info['region']
             )
