@@ -1,6 +1,5 @@
 import argparse
 import time
-from asyncio import sleep
 from dataclasses import dataclass, field
 from html import escape
 from typing import List, Optional
@@ -63,7 +62,7 @@ async def cmd_help(_, __, message: Message):
             text += '-q query 網域格式錯誤\n'
             pass_flag = False
 
-    if args.type.upper() not in ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT']:
+    if args.type.upper() not in ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT', 'ANY']:
         text += '-t type 參數錯誤\n'
         pass_flag = False
 
@@ -143,6 +142,4 @@ async def doh(client: Bot, message: Message):
         a_ = round(average / args.benchmark, 3)
         text += '\n🤌 平均: <code>{average}</code>'.format(
             average=f'{round(a_ / 1000, 2)}s' if a_ >= 1000 else f'{round(a_, 2)}ms')
-    if opt.slave.enable:
-        await sleep(1)
     await message.reply_text(text)
