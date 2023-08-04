@@ -1,79 +1,119 @@
 import argparse
 import time
 from dataclasses import dataclass, field
+from itertools import chain
 from html import escape
 from typing import List, Optional
 
-import dns.asyncquery
 import dns.asyncquery
 import dns.message
 import dns.query
 import dns.rdatatype
 import httpx
-import validators
-from dataclasses_json import config, dataclass_json
-from pyrogram import Client, filters
+from dataclasses_json import config, DataClassJsonMixin
+from marshmallow import fields, validate, ValidationError
+from pyrogram import filters
+from pyrogram.client import Client
 from pyrogram.types import Message
 
 from bot import Bot
+from bot.consts import SUPPORTED_DNS_TYPES
 from bot.utils import ArgumentParser
+from bot.utils.validators import is_domain, is_url
 
 
-@dataclass_json
+HINT = '使用方式: /doh -s <doh> -q <domain> -t <type> -b <benchmark times>'
+
+
 @dataclass
-class Args:
-    server: Optional[str] = field(metadata=config(field_name='s'))
-    query: Optional[str] = field(metadata=config(field_name='q'))
-    type: Optional[str] = field(metadata=config(field_name='t'))
-    benchmark: Optional[int] = field(metadata=config(field_name='b'))
-    raw: Optional[bool] = field(metadata=config(field_name='R'))
+class Args(DataClassJsonMixin):
+    server: str = field(metadata=config(
+        field_name='s',
+        mm_field=fields.Str(
+            data_key='s',
+            load_default='https://doh.futa.gg/dns-query',
+            validate=is_url,
+            error_messages={
+                'validator_failed': '-s DoH 伺服器格式錯誤',
+            },
+        )
+    ))
+    query: str = field(metadata=config(
+        field_name='q',
+        mm_field=fields.Str(
+            data_key='q',
+            required=True,
+            validate=is_domain,
+            error_messages={
+                'null': '缺少 -q 參數',
+                'required': '缺少 -q 參數',
+                'validator_failed': '-q query 網域格式錯誤',
+            },
+        )
+    ))
+    type: str = field(
+        metadata=config(
+            field_name='t',
+            mm_field=fields.Str(
+                data_key='t',
+                load_default='A',
+                validate=validate.OneOf(SUPPORTED_DNS_TYPES, error='-t type 參數錯誤'),
+            )
+        )
+    )
+    benchmark: Optional[int] = field(
+        metadata=config(
+            field_name='b',
+            mm_field=fields.Int(
+                data_key='b',
+                load_default=None,
+                validate=validate.Range(
+                    min=2,
+                    max=30,
+                    error='-b benchmark 次數設定錯誤'
+                ),
+                error_messages={
+                    'invalid': '-b benchmark 次數設定錯誤',
+                },
+            )
+        )
+    )
+    raw: Optional[bool] = field(metadata=config(
+        field_name='R',
+        mm_field=fields.Boolean(
+            data_key='R',
+            load_default=False,
+            error_messages={
+                'invalid': '-R raw 參數錯誤',
+            },
+        )
+    ))
+
+SCHEMA = Args.schema()
 
 
 def parse_args(string: List[str]) -> Args:
-    parser = ArgumentParser()
-    parser.add_argument('-s', type=str, help='some doh', required=False,
-                        default='https://doh.futa.gg/dns-query')
+    parser = ArgumentParser(argument_default=argparse.SUPPRESS)
+    parser.add_argument('-s', type=str, help='some doh', required=False)
     parser.add_argument('-q', type=str, help='some domain', required=False)
-    parser.add_argument('-t', type=str, help='some type', required=False, default='A')
-    parser.add_argument('-b', type=int, help='benchmark', required=False, default=None)
-    parser.add_argument('-R', type=bool, help='raw', required=False, default=False,
-                        action=argparse.BooleanOptionalAction)
-    return Args.from_dict(vars(parser.parse_args(string)))
+    parser.add_argument('-t', type=str, help='some type', required=False)
+    parser.add_argument('-b', type=str, help='benchmark', required=False)
+    parser.add_argument('-R', type=str, help='raw', required=False)
+    return SCHEMA.load(vars(parser.parse_args(string)))
 
 
 async def cmd_help(_, __, message: Message):
     # /doh -s https://doh.futa.gg/dns-query -q google.com -t A
     # message.
     cmd = message.text.split(' ')[1:]
-    args = parse_args(cmd)
-
-    text = '使用方式: /doh -s <doh> -q <domain> -t <type> -b <benchmark times>\n'
-    pass_flag = True
-
-    if not args.query:
-        text += '缺少 -q 參數\n'
-        pass_flag = False
-    else:
-        if validators.url(args.query):
-            text += '-q query 網域格式錯誤\n'
-            pass_flag = False
-
-    if args.type.upper() not in ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT', 'ANY']:
-        text += '-t type 參數錯誤\n'
-        pass_flag = False
-
-    if not validators.url(args.server):
-        text += '-s DoH 伺服器格式錯誤\n'
-        pass_flag = False
-
-    if args.benchmark and not validators.between(int(args.benchmark), min=2, max=30):
-        text += '-b benchmark 次數設定錯誤\n'
-        pass_flag = False
-
-    if not pass_flag:
+    try:
+        parse_args(cmd)
+        return True
+    except ValidationError as e:
+        msg = '\n'.join(chain.from_iterable(e.messages_dict.values()))
+        text = f'{HINT}\n{msg}'
         await message.reply_text(text)
         return False
-    return True
 
 
 async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
