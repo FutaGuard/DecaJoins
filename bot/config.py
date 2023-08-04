@@ -31,6 +31,7 @@ class Config(DataClassJsonMixin):
     @dataclass
     class Log(DataClassJsonMixin):
         level: Optional[str] = field(hash=False, repr=True, compare=False, default=None)
+        logfile: Optional[str] = field(hash=False, repr=True, compare=False, default="log/tmp.log")
 
     @dataclass
     class Slave(DataClassJsonMixin):

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from asyncio import AbstractEventLoop
 from typing import Optional, Union
@@ -9,12 +10,11 @@ from pyrogram.session import Session
 from pyrogram.types import User
 
 from bot.config import Config, get_config
-from bot.utils import watchlog
 import httpx
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 
-logger = watchlog(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

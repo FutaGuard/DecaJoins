@@ -1,4 +1,5 @@
 import argparse
+import logging
 import time
 from dataclasses import dataclass, field
 from html import escape
@@ -14,11 +15,11 @@ from dataclasses_json import config, dataclass_json
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from bot.utils import ArgumentParser, watchlog
+from bot.utils import ArgumentParser
 from bot import Bot
 
 
-logger = watchlog(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass_json

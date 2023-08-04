@@ -1,3 +1,4 @@
+import logging
 import os
 from testing.utils import mockenv
 
@@ -6,6 +7,10 @@ import pytest
 TEST_CONFIG = '''
 dev_mode: true
 '''
+
+@pytest.fixture(scope="session")
+def default_logging_handlers():
+    return list(logging.getLogger().handlers)
 
 
 @pytest.fixture(scope="session")
