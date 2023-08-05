@@ -1,0 +1,8 @@
+colorama==0.4.6 ; python_version >= "3.9" and python_version < "4.0" and sys_platform == "win32"
+exceptiongroup==1.1.2 ; python_version >= "3.9" and python_version < "3.11"
+iniconfig==2.0.0 ; python_version >= "3.9" and python_version < "4.0"
+packaging==23.1 ; python_version >= "3.9" and python_version < "4.0"
+pluggy==1.2.0 ; python_version >= "3.9" and python_version < "4.0"
+pytest-asyncio==0.21.1 ; python_version >= "3.9" and python_version < "4.0"
+pytest==7.4.0 ; python_version >= "3.9" and python_version < "4.0"
+tomli==2.0.1 ; python_version >= "3.9" and python_version < "3.11"
