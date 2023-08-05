@@ -9,7 +9,6 @@ import dns.asyncquery
 import dns.message
 import dns.query
 import dns.rdatatype
-import httpx
 from dataclasses_json import config, DataClassJsonMixin
 from marshmallow import fields, validate, ValidationError
 from pyrogram import filters
@@ -19,6 +18,7 @@ from pyrogram.types import Message
 from bot import Bot
 from bot.consts import SUPPORTED_DNS_TYPES
 from bot.utils import ArgumentParser
+from bot.utils.http import HttpClient
 from bot.utils.messages import has_standby, get_elapsed_info, get_standby_info
 from bot.utils.timing import timing_handler
 from bot.utils.validators import is_domain, is_url
@@ -125,7 +125,7 @@ async def cmd_help(_, __, message: Message):
 
 async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
     # s = requests.Session()
-    async with httpx.AsyncClient() as client:
+    async with HttpClient() as client:
         return await dns.asyncquery.https(
             q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
             where=server,

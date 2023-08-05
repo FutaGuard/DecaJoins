@@ -13,6 +13,7 @@ from pyrogram.session.session import Session
 from pyrogram.types import User
 
 from bot.config import Config, get_config
+from bot.utils.http import HttpClient
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +65,11 @@ class Bot(Client):
     async def __get_slave(self):
         if not self.config.slave.enable:
             return None
-        r = httpx.get('https://ipinfo.io')
         info: Optional[IpInfo] = None
         try:
-            info = r.json()
+            async with HttpClient() as s:
+                r = await s.get('https://ipinfo.io')
+                info = r.json()
         except JSONDecodeError:
             logger.error('ipinfo API Error')
             return None
