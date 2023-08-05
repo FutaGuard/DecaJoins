@@ -29,30 +29,34 @@ HINT = '使用方式: /doh -s <doh> -q <domain> -t <type> -b <benchmark times>'
 
 @dataclass
 class Args(DataClassJsonMixin):
-    server: str = field(metadata=config(
-        field_name='s',
-        mm_field=fields.Str(
-            data_key='s',
-            load_default='https://doh.futa.gg/dns-query',
-            validate=is_url,
-            error_messages={
-                'validator_failed': '-s DoH 伺服器格式錯誤',
-            },
+    server: str = field(
+        metadata=config(
+            field_name='s',
+            mm_field=fields.Str(
+                data_key='s',
+                load_default='https://doh.futa.gg/dns-query',
+                validate=is_url,
+                error_messages={
+                    'validator_failed': '-s DoH 伺服器格式錯誤',
+                },
+            ),
         )
-    ))
-    query: str = field(metadata=config(
-        field_name='q',
-        mm_field=fields.Str(
-            data_key='q',
-            required=True,
-            validate=is_domain,
-            error_messages={
-                'null': '缺少 -q 參數',
-                'required': '缺少 -q 參數',
-                'validator_failed': '-q query 網域格式錯誤',
-            },
+    )
+    query: str = field(
+        metadata=config(
+            field_name='q',
+            mm_field=fields.Str(
+                data_key='q',
+                required=True,
+                validate=is_domain,
+                error_messages={
+                    'null': '缺少 -q 參數',
+                    'required': '缺少 -q 參數',
+                    'validator_failed': '-q query 網域格式錯誤',
+                },
+            ),
         )
-    ))
+    )
     type: str = field(
         metadata=config(
             field_name='t',
@@ -60,7 +64,7 @@ class Args(DataClassJsonMixin):
                 data_key='t',
                 load_default='A',
                 validate=validate.OneOf(SUPPORTED_DNS_TYPES, error='-t type 參數錯誤'),
-            )
+            ),
         )
     )
     benchmark: Optional[int] = field(
@@ -70,26 +74,27 @@ class Args(DataClassJsonMixin):
                 data_key='b',
                 load_default=None,
                 validate=validate.Range(
-                    min=2,
-                    max=30,
-                    error='-b benchmark 次數設定錯誤'
+                    min=2, max=30, error='-b benchmark 次數設定錯誤'
                 ),
                 error_messages={
                     'invalid': '-b benchmark 次數設定錯誤',
                 },
-            )
+            ),
         )
     )
-    raw: Optional[bool] = field(metadata=config(
-        field_name='R',
-        mm_field=fields.Boolean(
-            data_key='R',
-            load_default=False,
-            error_messages={
-                'invalid': '-R raw 參數錯誤',
-            },
+    raw: Optional[bool] = field(
+        metadata=config(
+            field_name='R',
+            mm_field=fields.Boolean(
+                data_key='R',
+                load_default=False,
+                error_messages={
+                    'invalid': '-R raw 參數錯誤',
+                },
+            ),
         )
-    ))
+    )
+
 
 SCHEMA = Args.schema()
 
@@ -124,7 +129,8 @@ async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
         return await dns.asyncquery.https(
             q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
             where=server,
-            client=client)
+            client=client,
+        )
 
 
 async def command_handler(cmd: List[str]):
@@ -153,7 +159,11 @@ async def command_handler(cmd: List[str]):
         )
         average = round(sum(elapsed for _, elapsed in results), 3) / cnt
         elapsed_block = '\n'.join(
-            ['🏁 測試結果:', f'{steps}', f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>']
+            [
+                '🏁 測試結果:',
+                f'{steps}',
+                f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>',
+            ]
         )
     return f'{result_block}\n{elapsed_block}'
 

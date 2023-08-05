@@ -2,17 +2,17 @@ import asyncio
 import logging
 import sys
 from asyncio import AbstractEventLoop
+from dataclasses import dataclass
+from json.decoder import JSONDecodeError
 from typing import Optional, Union
 
-from pyrogram import Client
+import httpx
+from pyrogram.client import Client
 from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
-from pyrogram.session import Session
+from pyrogram.session.session import Session
 from pyrogram.types import User
 
 from bot.config import Config, get_config
-import httpx
-from dataclasses import dataclass
-from json.decoder import JSONDecodeError
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 class Slave:
     ip: str
     asn: str
+    region: str
+
+
+@dataclass
+class IpInfo:
+    ip: str
+    org: str
     region: str
 
 
@@ -46,10 +53,10 @@ class Bot(Client):
 
     async def __get_me(self):
         me: User = await self.get_me()
-        info_str: str = f'[Listening] {me.first_name}'
-        info_str += f' {me.last_name}' if me.last_name else ''
-        info_str += f' (@{me.username})' if me.username else ''
-        info_str += f' ID: {me.id}'
+        info_str: str = (
+            f'[Listening] {me.first_name} {me.last_name or ""}'
+            f' (@{me.username or ""}) ID: {me.id}'
+        )
 
         logger.info(info_str)
         self.me: User = me
@@ -58,20 +65,18 @@ class Bot(Client):
         if not self.config.slave.enable:
             return None
         r = httpx.get('https://ipinfo.io')
-        info: Optional[dict] = None
+        info: Optional[IpInfo] = None
         try:
             info = r.json()
         except JSONDecodeError:
             logger.error('ipinfo API Error')
             return None
-        else:
+        if info:
             ip = info['ip'].split('.')
             ip[-1] = '0'
             ip[-2] = '0'
             self.slave = Slave(
-                ip='.'.join(e for e in ip),
-                asn=info['org'],
-                region=info['region']
+                ip='.'.join(e for e in ip), asn=info['org'], region=info['region']
             )
             logger.info(self.slave)
 

@@ -9,6 +9,7 @@ from pyrogram.client import Client
 from pyrogram.types import Message
 
 from bot.utils.validators import is_url
+
 # /urlscan https://doh.futa.gg/dns-query
 
 # async def check_cmd(_, __, message: Message):
@@ -23,4 +24,4 @@ async def urlscan(_, message: Message):
     if not is_url(message.text.split(' ')[1]):
         return await message.reply_text('URL 格式錯誤')
 
-    sent = await message.reply_text(f'正在掃描中...\n🔗 URL：{message.command[1]}')
+    await message.reply_text(f'正在掃描中...\n🔗 URL：{message.command[1]}')

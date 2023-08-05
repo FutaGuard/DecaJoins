@@ -1,16 +1,16 @@
 import argparse
 import logging
 from dataclasses import dataclass, field
-from itertools import chain
 from html import escape
+from itertools import chain
 from typing import List, Optional
 
 import dns.asyncquery
 import dns.message
 import dns.query
 import dns.rdatatype
-from dataclasses_json import config, DataClassJsonMixin
-from marshmallow import fields, validate, ValidationError
+from dataclasses_json import DataClassJsonMixin, config
+from marshmallow import ValidationError, fields, validate
 from pyrogram import filters
 from pyrogram.client import Client
 from pyrogram.types import Message
@@ -18,9 +18,9 @@ from pyrogram.types import Message
 from bot import Bot
 from bot.consts import SUPPORTED_DNS_TYPES
 from bot.utils import ArgumentParser
-from bot.utils.messages import has_standby, get_elapsed_info, get_standby_info
+from bot.utils.messages import get_elapsed_info, get_standby_info, has_standby
 from bot.utils.timing import timing_handler
-from bot.utils.validators import is_ip, is_domain
+from bot.utils.validators import is_domain, is_ip
 
 logger = logging.getLogger(__name__)
 HINT = '使用方式: /dig -s <udp ip> -q <domain> -t <type>'
@@ -28,30 +28,34 @@ HINT = '使用方式: /dig -s <udp ip> -q <domain> -t <type>'
 
 @dataclass
 class Args(DataClassJsonMixin):
-    server: str = field(metadata=config(
-        field_name='s',
-        mm_field=fields.Str(
-            data_key='s',
-            load_default='8.8.8.8',
-            validate=is_ip,
-            error_messages={
-                'validator_failed': '-s UDP IP 伺服器格式錯誤',
-            },
+    server: str = field(
+        metadata=config(
+            field_name='s',
+            mm_field=fields.Str(
+                data_key='s',
+                load_default='8.8.8.8',
+                validate=is_ip,
+                error_messages={
+                    'validator_failed': '-s UDP IP 伺服器格式錯誤',
+                },
+            ),
         )
-    ))
-    query: str = field(metadata=config(
-        field_name='q',
-        mm_field=fields.Str(
-            data_key='q',
-            required=True,
-            validate=is_domain,
-            error_messages={
-                'null': '缺少 -q 參數',
-                'required': '缺少 -q 參數',
-                'validator_failed': '-q query 網域格式錯誤',
-            },
+    )
+    query: str = field(
+        metadata=config(
+            field_name='q',
+            mm_field=fields.Str(
+                data_key='q',
+                required=True,
+                validate=is_domain,
+                error_messages={
+                    'null': '缺少 -q 參數',
+                    'required': '缺少 -q 參數',
+                    'validator_failed': '-q query 網域格式錯誤',
+                },
+            ),
         )
-    ))
+    )
     type: str = field(
         metadata=config(
             field_name='t',
@@ -59,7 +63,7 @@ class Args(DataClassJsonMixin):
                 data_key='t',
                 load_default='A',
                 validate=validate.OneOf(SUPPORTED_DNS_TYPES, error='-t type 參數錯誤'),
-            )
+            ),
         )
     )
     benchmark: Optional[int] = field(
@@ -69,26 +73,24 @@ class Args(DataClassJsonMixin):
                 data_key='b',
                 load_default=None,
                 validate=validate.Range(
-                    min=2,
-                    max=30,
-                    error='-b benchmark 次數設定錯誤'
+                    min=2, max=30, error='-b benchmark 次數設定錯誤'
                 ),
-                error_messages={
-                    'invalid': '-b benchmark 次數設定錯誤',
-                },
-            )
+                error_messages={'invalid': '-b benchmark 次數設定錯誤'},
+            ),
         )
     )
-    raw: Optional[bool] = field(metadata=config(
-        field_name='R',
-        mm_field=fields.Boolean(
-            data_key='R',
-            load_default=False,
-            error_messages={
-                'invalid': '-R raw 參數錯誤',
-            },
+    raw: Optional[bool] = field(
+        metadata=config(
+            field_name='R',
+            mm_field=fields.Boolean(
+                data_key='R',
+                load_default=False,
+                error_messages={
+                    'invalid': '-R raw 參數錯誤',
+                },
+            ),
         )
-    ))
+    )
 
 
 SCHEMA = Args.schema()
@@ -120,8 +122,8 @@ async def cmd_help(_, __, message: Message):
 
 async def dig_query(server: str, query: str, types: str) -> dns.message.Message:
     r = await dns.asyncquery.udp_with_fallback(
-        q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
-        where=server)
+        q=dns.message.make_query(query, getattr(dns.rdatatype, types)), where=server
+    )
     return r[0]
 
 
@@ -151,7 +153,11 @@ async def command_handler(cmd: List[str]):
         )
         average = round(sum(elapsed for _, elapsed in results), 3) / cnt
         elapsed_block = '\n'.join(
-            ['🏁 測試結果:', f'{steps}', f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>']
+            [
+                '🏁 測試結果:',
+                f'{steps}',
+                f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>',
+            ]
         )
     return f'{result_block}\n{elapsed_block}'
 

@@ -1,14 +1,14 @@
-from functools import lru_cache
 import logging
 import os
 import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Optional
 
 import coloredlogs
 from dataclasses_json import DataClassJsonMixin
 from yaml import safe_load
-from yaml.error import YAMLError, MarkedYAMLError
+from yaml.error import MarkedYAMLError, YAMLError
 
 logger = logging.getLogger(__name__)
 coloredlogs.install(level='INFO', logger=logger)
@@ -31,7 +31,9 @@ class Config(DataClassJsonMixin):
     @dataclass
     class Log(DataClassJsonMixin):
         level: Optional[str] = field(hash=False, repr=True, compare=False, default=None)
-        logfile: Optional[str] = field(hash=False, repr=True, compare=False, default="log/tmp.log")
+        logfile: Optional[str] = field(
+            hash=False, repr=True, compare=False, default="log/tmp.log"
+        )
 
     @dataclass
     class Slave(DataClassJsonMixin):

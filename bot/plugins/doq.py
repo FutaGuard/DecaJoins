@@ -28,30 +28,34 @@ HINT = '使用方式: /doq -s <doq> -q <domain> -p <port> -t <type> -b <benchmar
 
 @dataclass
 class Args(DataClassJsonMixin):
-    server: str = field(metadata=config(
-        field_name='s',
-        mm_field=fields.Str(
-            data_key='s',
-            load_default='quic://unfiltered.adguard-dns.com',
-            validate=is_quic,
-            error_messages={
-                'validator_failed': '-s DoQ 伺服器格式錯誤，應以 quic:// 作為開頭',
-            },
+    server: str = field(
+        metadata=config(
+            field_name='s',
+            mm_field=fields.Str(
+                data_key='s',
+                load_default='quic://unfiltered.adguard-dns.com',
+                validate=is_quic,
+                error_messages={
+                    'validator_failed': '-s DoQ 伺服器格式錯誤，應以 quic:// 作為開頭',
+                },
+            ),
         )
-    ))
-    query: str = field(metadata=config(
-        field_name='q',
-        mm_field=fields.Str(
-            data_key='q',
-            required=True,
-            validate=is_domain,
-            error_messages={
-                'null': '缺少 -q 參數',
-                'required': '缺少 -q 參數',
-                'validator_failed': '-q query 網域格式錯誤',
-            },
+    )
+    query: str = field(
+        metadata=config(
+            field_name='q',
+            mm_field=fields.Str(
+                data_key='q',
+                required=True,
+                validate=is_domain,
+                error_messages={
+                    'null': '缺少 -q 參數',
+                    'required': '缺少 -q 參數',
+                    'validator_failed': '-q query 網域格式錯誤',
+                },
+            ),
         )
-    ))
+    )
     type: str = field(
         metadata=config(
             field_name='t',
@@ -59,7 +63,7 @@ class Args(DataClassJsonMixin):
                 data_key='t',
                 load_default='A',
                 validate=validate.OneOf(SUPPORTED_DNS_TYPES, error='-t type 參數錯誤'),
-            )
+            ),
         )
     )
     benchmark: Optional[int] = field(
@@ -69,37 +73,40 @@ class Args(DataClassJsonMixin):
                 data_key='b',
                 load_default=None,
                 validate=validate.Range(
-                    min=2,
-                    max=30,
-                    error='-b benchmark 次數設定錯誤'
+                    min=2, max=30, error='-b benchmark 次數設定錯誤'
                 ),
                 error_messages={
                     'invalid': '-b benchmark 次數設定錯誤',
                 },
-            )
+            ),
         )
     )
-    raw: Optional[bool] = field(metadata=config(
-        field_name='R',
-        mm_field=fields.Boolean(
-            data_key='R',
-            load_default=False,
-            error_messages={
-                'invalid': '-R raw 參數錯誤',
-            },
+    raw: Optional[bool] = field(
+        metadata=config(
+            field_name='R',
+            mm_field=fields.Boolean(
+                data_key='R',
+                load_default=False,
+                error_messages={
+                    'invalid': '-R raw 參數錯誤',
+                },
+            ),
         )
-    ))
-    port: int = field(metadata=config(
-        field_name='p',
-        mm_field=fields.Int(
-            data_key='p',
-            load_default=853,
-            validate=validate.Range(min=0, max=65536, error='-p port 參數錯誤'),
-            error_messages={
-                'invalid': '-p port 參數錯誤',
-            },
+    )
+    port: int = field(
+        metadata=config(
+            field_name='p',
+            mm_field=fields.Int(
+                data_key='p',
+                load_default=853,
+                validate=validate.Range(min=0, max=65536, error='-p port 參數錯誤'),
+                error_messages={
+                    'invalid': '-p port 參數錯誤',
+                },
+            ),
         )
-    ))
+    )
+
 
 SCHEMA = Args.schema()
 
@@ -146,6 +153,7 @@ async def quick_resolve(qname: str) -> str:
     else:
         return r.answer[0].to_text().split(' ')[-1]
 
+
 async def command_handler(cmd: List[str]):
     args = parse_args(cmd)
     ip = await quick_resolve(args.server[7:])
@@ -173,7 +181,11 @@ async def command_handler(cmd: List[str]):
         )
         average = round(sum(elapsed for _, elapsed in results), 3) / cnt
         elapsed_block = '\n'.join(
-            ['🏁 測試結果:', f'{steps}', f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>']
+            [
+                '🏁 測試結果:',
+                f'{steps}',
+                f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>',
+            ]
         )
     return f'{result_block}\n{elapsed_block}'
 
