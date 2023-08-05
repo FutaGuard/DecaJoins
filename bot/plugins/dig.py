@@ -1,5 +1,5 @@
 import argparse
-import time
+import logging
 from dataclasses import dataclass, field
 from itertools import chain
 from html import escape
@@ -18,9 +18,11 @@ from pyrogram.types import Message
 from bot import Bot
 from bot.consts import SUPPORTED_DNS_TYPES
 from bot.utils import ArgumentParser
+from bot.utils.messages import has_standby, get_elapsed_info, get_standby_info
+from bot.utils.timing import timing_handler
 from bot.utils.validators import is_ip, is_domain
 
-
+logger = logging.getLogger(__name__)
 HINT = '使用方式: /dig -s <udp ip> -q <domain> -t <type>'
 
 
@@ -88,6 +90,7 @@ class Args(DataClassJsonMixin):
         )
     ))
 
+
 SCHEMA = Args.schema()
 
 
@@ -122,46 +125,54 @@ async def dig_query(server: str, query: str, types: str) -> dns.message.Message:
     return r[0]
 
 
-@Client.on_message(filters.command('dig') & filters.create(cmd_help))
-async def doh(client: Bot, message: Message):
-    cmd = message.text.split(' ')[1:]
+async def command_handler(cmd: List[str]):
     args = parse_args(cmd)
-    start = time.time()
-    result = await dig_query(args.server, args.query, args.type.upper())
-    end = (time.time() - start)*1000
-    text = ''
-    opt = client.config
-    if opt.slave.enable:
-        text += '🔍 子節點查詢結果:\n\n'
-        text += '📍 <code>{name} ({region})</code>\n<code>{ip}（{asn}）</code>\n\n'.format(
-            name=escape(opt.slave.name),
-            ip=client.slave.ip,
-            asn=escape(client.slave.asn),
-            region=escape(client.slave.region)
+    cnt = args.benchmark or 1
+    results = [
+        await timing_handler(dig_query, should_raise=True)(
+            args.server, args.query, args.type.upper()
         )
-    else:
-        text += '🔍 查詢結果:\n'
-    if args.raw:
-        text += '<code>{result}</code>\n\n'.format(result=escape(result.to_text()))
-    else:
-        for i in result.answer:
-            text += '<code>{result}</code>\n\n'.format(result=escape(i.to_text()))
+        for _ in range(cnt)
+    ]
+    first_result = results[0][0]
+    # error already raised
+    assert first_result
+    answer = [first_result] if args.raw else first_result.answer
+    result_block = ''.join(
+        '<code>{result}</code>\n'.format(result=escape(r.to_text())) for r in answer
+    )
 
-    if not args.benchmark:
-        text += '⏳ 快樂錶: {cons}'.format(cons=f'{round(end/1000, 2)}s' if end >= 1000 else f'{round(end, 2)}ms')
+    if len(results) == 1:
+        elapsed_block = f'⏳ 快樂錶: {get_elapsed_info(results[0][1])}'
     else:
-        text += '🏁 測試結果: \n'
-        average = 0.0
-        for i in range(1, args.benchmark + 1):
-            start = time.time()
-            await dig_query(args.server, args.query, args.type.upper())
-            end = (time.time() - start) * 1000
-            average += end
-            text += '{t}. - <code>{cons}</code>\n'.format(
-                t=i,
-                cons=f'{round(end / 1000, 2)}s' if end >= 1000 else f'{round(end, 2)}ms'
-            )
-        a_ = round(average / args.benchmark, 3)
-        text += '\n🤌 平均: <code>{average}</code>'.format(
-            average=f'{round(a_ / 1000, 2)}s' if a_ >= 1000 else f'{round(a_, 2)}ms')
+        steps = '\n'.join(
+            f'{i}. - <code>{get_elapsed_info(elapsed)}</code>'
+            for i, (_, elapsed) in enumerate(results, 1)
+        )
+        average = round(sum(elapsed for _, elapsed in results), 3) / cnt
+        elapsed_block = '\n'.join(
+            ['🏁 測試結果:', f'{steps}', f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>']
+        )
+    return f'{result_block}\n{elapsed_block}'
+
+
+@Client.on_message(
+    filters.command('dig')
+    & filters.create(cmd_help)  # pyright: ignore [reportGeneralTypeIssues]
+)
+async def dig(client: Bot, message: Message):
+    cmd = message.text.split(' ')[1:]
+    try:
+        result = await command_handler(cmd)
+    except Exception as e:
+        await message.reply_text('查詢錯誤，請先檢查 -s 參數是否正確')
+        logger.exception(e)
+        return
+    subtitle = ''
+    standby_info = ''
+    if has_standby(client):
+        subtitle = '（子節點）'
+        standby_info = f'\n{get_standby_info(client)}'
+    title = f'🔍 查詢結果{subtitle}:'
+    text = '\n'.join(filter(bool, (title, standby_info, result)))
     await message.reply_text(text)
