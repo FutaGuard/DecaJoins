@@ -32,11 +32,15 @@ bot:
 log:
     level: "ERROR"
     logfile: "/tmp/dont-care.log"
+standby:
+    enable: true
+    name: "standby-server"
         ''',
             Config(
                 dev_mode=True,
                 bot=Config.Bot(bot_token='xxx', api_id='yyy', api_hash='zzz'),
                 log=Config.Log(level='ERROR', logfile='/tmp/dont-care.log'),
+                standby=Config.Standby(enable=True, name='standby-server'),
             ),
         ),
     ),

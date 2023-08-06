@@ -36,7 +36,7 @@ class Config(DataClassJsonMixin):
         )
 
     @dataclass
-    class Slave(DataClassJsonMixin):
+    class Standby(DataClassJsonMixin):
         enable: Optional[bool] = field(
             hash=False, repr=True, compare=False, default=None
         )
@@ -46,7 +46,7 @@ class Config(DataClassJsonMixin):
     bot: Bot = Bot
     log: Log = Log
     admin: int = 5440674042
-    slave = Slave
+    standby: Standby = Standby
 
 
 def load(initial: bool = False):

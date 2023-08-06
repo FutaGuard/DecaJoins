@@ -81,7 +81,7 @@ async def test_doh(text, answer, expected):
             answer=[mock.MagicMock(**{'to_text.return_value': answer})]
         ),
     ) as query:
-        client = mock.AsyncMock(**{'config.slave.enable': False})
+        client = mock.AsyncMock(**{'config.standby.enable': False})
         message = mock.AsyncMock(text=text)
         args = text.split(' ')[1:]
         parsed = parse_args(args)
@@ -140,11 +140,11 @@ async def test_doh_standby(text, answer, expected):
     ) as query:
         client = mock.AsyncMock(
             **{
-                'config.slave.enable': True,
-                'config.slave.name': 'name',
-                'slave.ip': 'ip',
-                'slave.asn': 'asn',
-                'slave.region': 'region',
+                'config.standby.enable': True,
+                'config.standby.name': 'name',
+                'standby.ip': 'ip',
+                'standby.asn': 'asn',
+                'standby.region': 'region',
             }
         )
         message = mock.AsyncMock(text=text)
@@ -164,11 +164,11 @@ async def test_doh_error():
     ) as query:
         client = mock.AsyncMock(
             **{
-                'config.slave.enable': True,
-                'config.slave.name': 'name',
-                'slave.ip': 'ip',
-                'slave.asn': 'asn',
-                'slave.region': 'region',
+                'config.standby.enable': True,
+                'config.standby.name': 'name',
+                'standby.ip': 'ip',
+                'standby.asn': 'asn',
+                'standby.region': 'region',
             }
         )
         message = mock.AsyncMock(text='/doh -q google.com')

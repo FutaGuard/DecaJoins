@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Slave:
+class Standby:
     ip: str
     asn: str
     region: str
@@ -34,7 +34,7 @@ class IpInfo:
 
 class Bot(Client):
     _instance: Union[None, "Bot"] = None
-    slave: Optional[Slave] = None
+    standby: Optional[Standby] = None
     config: Config
 
     def __init__(self):
@@ -62,8 +62,8 @@ class Bot(Client):
         logger.info(info_str)
         self.me: User = me
 
-    async def __get_slave(self):
-        if not self.config.slave.enable:
+    async def __get_standby(self):
+        if not self.config.standby.enable:
             return None
         info: Optional[IpInfo] = None
         try:
@@ -77,10 +77,10 @@ class Bot(Client):
             ip = info['ip'].split('.')
             ip[-1] = '0'
             ip[-2] = '0'
-            self.slave = Slave(
+            self.standby = Standby(
                 ip='.'.join(e for e in ip), asn=info['org'], region=info['region']
             )
-            logger.info(self.slave)
+            logger.info(self.standby)
 
     async def __self_test(self):
         # Disable notice
@@ -102,7 +102,7 @@ class Bot(Client):
             logger.exception(e)
             sys.exit(1)
         try:
-            await self.__get_slave()
+            await self.__get_standby()
         except Exception as e:
             logger.exception(e)
             sys.exit(1)

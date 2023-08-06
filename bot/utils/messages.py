@@ -10,16 +10,16 @@ def get_elapsed_info(elapsed: float):
 
 
 def has_standby(client: "Bot"):
-    return client.config.slave.enable and client.slave
+    return client.config.standby.enable and client.standby
 
 
 def get_standby_info(client: "Bot"):
     if has_standby(client):
-        assert client.slave
-        name = escape(client.config.slave.name or '')
-        ip = client.slave.ip
-        asn = escape(client.slave.asn)
-        region = escape(client.slave.region)
+        assert client.standby
+        name = escape(client.config.standby.name or '')
+        ip = client.standby.ip
+        asn = escape(client.standby.asn)
+        region = escape(client.standby.region)
         return f'''\
 📍 <code>{name} ({region})</code>
 <code>{ip}（{asn}）</code>
