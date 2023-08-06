@@ -53,7 +53,7 @@ def load(initial: bool = False):
     """
     讀取設定用的東西
     usage: bot.config.loads()
-    tpyes: config 自己找找
+    types: config 自己找找
     """
     filename = 'env_config.yml'
     env_config = os.getenv('ENV_CONFIG', filename)

@@ -32,5 +32,5 @@ async def add_rule(_, message: Message):
             ]
         ]
     )
-    text = '確定要新增下列規則嗎？\n' '<code>{r}</code>'.format(r=escape(cmd[2]))
+    text = '確定要新增下列規則嗎？\n<code>{r}</code>'.format(r=escape(cmd[2]))
     await message.reply_text(text, reply_markup=kb)

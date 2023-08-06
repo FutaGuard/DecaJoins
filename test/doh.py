@@ -5,6 +5,7 @@ import dns.asyncquery
 import asyncio
 import httpx
 
+
 async def main():
     where = 'https://doh.futa.gg/dns-query'
     qname = 'google.com'

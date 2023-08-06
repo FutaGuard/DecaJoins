@@ -9,4 +9,4 @@ from bot.consts import BOT_DESCRIPTION
     filters.command('start')  # pyright: ignore [reportGeneralTypeIssues]
 )
 async def start(_, message: Message):
-   await message.reply_text(BOT_DESCRIPTION, disable_web_page_preview=True)
+    await message.reply_text(BOT_DESCRIPTION, disable_web_page_preview=True)

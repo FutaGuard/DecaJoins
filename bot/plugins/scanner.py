@@ -16,7 +16,9 @@ from bot.utils.validators import is_url
 
 
 @Client.on_message(
-    filters.command('urlscan', prefixes='/') # pyright: ignore [reportGeneralTypeIssues]
+    filters.command(
+        'urlscan', prefixes='/'
+    )  # pyright: ignore [reportGeneralTypeIssues]
 )
 async def urlscan(_, message: Message):
     if len(message.command) < 2:
