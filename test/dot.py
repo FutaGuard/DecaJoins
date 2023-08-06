@@ -1,5 +1,3 @@
-import requests
-
 import dns.message
 import dns.query
 import dns.rdatatype

@@ -15,12 +15,23 @@ dataclasses-json = "^0.5.8"
 dnspython = "^2.3.0"
 requests-toolbelt = "^1.0.0"
 parse = "^1.19.1"
-validators = "^0.20.0"
+validators = {git = "https://github.com/python-validators/validators", rev = "latest"}
 httpx = "^0.24.1"
 aioquic = "^0.9.20"
 aiohttp = "^3.8.4"
 
 [tool.poetry.dev-dependencies]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.1"
+
+[tool.black]
+skip-string-normalization = true
+preview = true
+
+[tool.ruff]
+line-length = 88
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

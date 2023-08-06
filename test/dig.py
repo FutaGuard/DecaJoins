@@ -1,11 +1,10 @@
 import asyncio
 
-# import trio
-
-import dns.asyncresolver
-import dns.message
 import dns
-import asyncio
+
+# import trio
+import dns.asyncquery
+import dns.message
 
 
 async def main():
@@ -13,6 +12,7 @@ async def main():
     r = await dns.asyncquery.udp_with_fallback(q=msg, where='216.218.130.2')
     # print(r.answer[0].to_text().split(' ')[-1])
     print(r[0])
+
 
 if __name__ == '__main__':
     asyncio.run(main())

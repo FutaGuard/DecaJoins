@@ -1,42 +1,50 @@
 import asyncio
+import logging
 import sys
 from asyncio import AbstractEventLoop
-from typing import Optional, Union
-
-from pyrogram import Client
-from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
-from pyrogram.session import Session
-from pyrogram.types import User
-
-from bot import config
-from bot.utils import watchlog
-import httpx
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
+from typing import Optional, Union
 
-opt = config.load(initial=True)
-logger = watchlog(__name__)
+from pyrogram.client import Client
+from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
+from pyrogram.session.session import Session
+from pyrogram.types import User
+
+from bot.config import Config, get_config
+from bot.utils.http import HttpClient
+from bot.utils.validators import get_tld
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Slave:
+class Standby:
     ip: str
     asn: str
     region: str
 
 
+@dataclass
+class IpInfo:
+    ip: str
+    org: str
+    region: str
+
+
 class Bot(Client):
     _instance: Union[None, "Bot"] = None
-    me: Optional[User] = None
-    slave: Optional[Slave] = None
+    standby: Optional[Standby] = None
+    config: Config
 
     def __init__(self):
+        self.config = config = get_config()
         super().__init__(
             name='bot',
-            api_id=opt.bot.api_id,
-            api_hash=opt.bot.api_hash,
-            bot_token=opt.bot.bot_token,
-            plugins=dict(root='bot/plugins')
+            api_id=config.bot.api_id,
+            api_hash=config.bot.api_hash,
+            bot_token=config.bot.bot_token,
+            plugins=dict(root='bot/plugins'),
         )
 
     def __new__(cls, *args, **kwargs):
@@ -46,34 +54,33 @@ class Bot(Client):
 
     async def __get_me(self):
         me: User = await self.get_me()
-        info_str: str = f'[Listening] {me.first_name}'
-        info_str += f' {me.last_name}' if me.last_name else ''
-        info_str += f' (@{me.username})' if me.username else ''
-        info_str += f' ID: {me.id}'
+        info_str: str = (
+            f'[Listening] {me.first_name} {me.last_name or ""}'
+            f' (@{me.username or ""}) ID: {me.id}'
+        )
 
         logger.info(info_str)
         self.me: User = me
 
-    async def __get_slave(self):
-        if not opt.slave.enable:
+    async def __get_standby(self):
+        if not self.config.standby.enable:
             return None
-        r = httpx.get('https://ipinfo.io')
-        info: Optional[dict] = None
+        info: Optional[IpInfo] = None
         try:
-            info = r.json()
+            async with HttpClient() as s:
+                r = await s.get('https://ipinfo.io')
+                info = r.json()
         except JSONDecodeError:
             logger.error('ipinfo API Error')
             return None
-        else:
+        if info:
             ip = info['ip'].split('.')
             ip[-1] = '0'
             ip[-2] = '0'
-            self.slave = Slave(
-                ip='.'.join(e for e in ip),
-                asn=info['org'],
-                region=info['region']
+            self.standby = Standby(
+                ip='.'.join(e for e in ip), asn=info['org'], region=info['region']
             )
-            logger.info(self.slave)
+            logger.info(self.standby)
 
     async def __self_test(self):
         # Disable notice
@@ -95,20 +102,18 @@ class Bot(Client):
             logger.exception(e)
             sys.exit(1)
         try:
-            await self.__get_slave()
+            await self.__get_standby()
         except Exception as e:
             logger.exception(e)
             sys.exit(1)
         await self.stop()
 
-    @property
-    def config(self) -> config.Config:
-        return opt
-
     def start_serve(self):
         loop: AbstractEventLoop = asyncio.get_event_loop()
         run = loop.run_until_complete
         run(self.__self_test())
+        # fetch tld on start
+        get_tld()
 
         logger.info('我就是速度~')
 

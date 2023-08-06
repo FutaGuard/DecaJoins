@@ -10,7 +10,9 @@
 # ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 
 from bot import Bot
+from bot.utils.logging import configure
 
 if __name__ == '__main__':
+    configure()
     bot: Bot = Bot()
     bot.start_serve()

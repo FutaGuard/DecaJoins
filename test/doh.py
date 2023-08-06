@@ -1,11 +1,10 @@
-import requests
-
 import dns.message
 import dns.query
 import dns.rdatatype
 import dns.asyncquery
 import asyncio
 import httpx
+
 
 async def main():
     where = 'https://doh.futa.gg/dns-query'

@@ -1,136 +1,190 @@
 import argparse
-import time
+import logging
 from dataclasses import dataclass, field
+from itertools import chain
 from html import escape
 from typing import List, Optional
 
 import dns.asyncquery
-import dns.asyncquery
 import dns.message
 import dns.query
 import dns.rdatatype
-import httpx
-import validators
-from dataclasses_json import config, dataclass_json
-from pyrogram import Client, filters
+from dataclasses_json import config, DataClassJsonMixin
+from marshmallow import fields, validate, ValidationError
+from pyrogram import filters
+from pyrogram.client import Client
 from pyrogram.types import Message
 
-from bot import config as bot_config
 from bot import Bot
+from bot.consts import SUPPORTED_DNS_TYPES
 from bot.utils import ArgumentParser
+from bot.utils.http import HttpClient
+from bot.utils.messages import has_standby, get_elapsed_info, get_standby_info
+from bot.utils.timing import timing_handler
+from bot.utils.validators import is_domain, is_url
 
-opt = bot_config.load()
+logger = logging.getLogger(__name__)
+HINT = '使用方式: /doh -s <doh> -q <domain> -t <type> -b <benchmark times>'
 
 
-@dataclass_json
 @dataclass
-class Args:
-    server: Optional[str] = field(metadata=config(field_name='s'))
-    query: Optional[str] = field(metadata=config(field_name='q'))
-    type: Optional[str] = field(metadata=config(field_name='t'))
-    benchmark: Optional[int] = field(metadata=config(field_name='b'))
-    raw: Optional[bool] = field(metadata=config(field_name='R'))
+class Args(DataClassJsonMixin):
+    server: str = field(
+        metadata=config(
+            field_name='s',
+            mm_field=fields.Str(
+                data_key='s',
+                load_default='https://doh.futa.gg/dns-query',
+                validate=is_url,
+                error_messages={
+                    'validator_failed': '-s DoH 伺服器格式錯誤',
+                },
+            ),
+        )
+    )
+    query: str = field(
+        metadata=config(
+            field_name='q',
+            mm_field=fields.Str(
+                data_key='q',
+                required=True,
+                validate=is_domain,
+                error_messages={
+                    'null': '缺少 -q 參數',
+                    'required': '缺少 -q 參數',
+                    'validator_failed': '-q query 網域格式錯誤',
+                },
+            ),
+        )
+    )
+    type: str = field(
+        metadata=config(
+            field_name='t',
+            mm_field=fields.Str(
+                data_key='t',
+                load_default='A',
+                validate=validate.OneOf(SUPPORTED_DNS_TYPES, error='-t type 參數錯誤'),
+            ),
+        )
+    )
+    benchmark: Optional[int] = field(
+        metadata=config(
+            field_name='b',
+            mm_field=fields.Int(
+                data_key='b',
+                load_default=None,
+                validate=validate.Range(
+                    min=2, max=30, error='-b benchmark 次數設定錯誤'
+                ),
+                error_messages={
+                    'invalid': '-b benchmark 次數設定錯誤',
+                },
+            ),
+        )
+    )
+    raw: Optional[bool] = field(
+        metadata=config(
+            field_name='R',
+            mm_field=fields.Boolean(
+                data_key='R',
+                load_default=False,
+                error_messages={
+                    'invalid': '-R raw 參數錯誤',
+                },
+            ),
+        )
+    )
+
+
+SCHEMA = Args.schema()
 
 
 def parse_args(string: List[str]) -> Args:
-    parser = ArgumentParser()
-    parser.add_argument('-s', type=str, help='some doh', required=False,
-                        default='https://doh.futa.gg/dns-query')
+    parser = ArgumentParser(argument_default=argparse.SUPPRESS)
+    parser.add_argument('-s', type=str, help='some doh', required=False)
     parser.add_argument('-q', type=str, help='some domain', required=False)
-    parser.add_argument('-t', type=str, help='some type', required=False, default='A')
-    parser.add_argument('-b', type=int, help='benchmark', required=False, default=None)
-    parser.add_argument('-R', type=bool, help='raw', required=False, default=False,
-                        action=argparse.BooleanOptionalAction)
-    return Args.from_dict(vars(parser.parse_args(string)))
+    parser.add_argument('-t', type=str, help='some type', required=False)
+    parser.add_argument('-b', type=str, help='benchmark', required=False)
+    parser.add_argument('-R', type=str, help='raw', required=False)
+    return SCHEMA.load(vars(parser.parse_args(string)))
 
 
 async def cmd_help(_, __, message: Message):
     # /doh -s https://doh.futa.gg/dns-query -q google.com -t A
     # message.
     cmd = message.text.split(' ')[1:]
-    args = parse_args(cmd)
-
-    text = '使用方式: /doh -s <doh> -q <domain> -t <type> -b <benchmark times>\n'
-    pass_flag = True
-
-    if not args.query:
-        text += '缺少 -q 參數\n'
-        pass_flag = False
-    else:
-        if validators.url(args.query):
-            text += '-q query 網域格式錯誤\n'
-            pass_flag = False
-
-    if args.type.upper() not in ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT', 'ANY']:
-        text += '-t type 參數錯誤\n'
-        pass_flag = False
-
-    if not validators.url(args.server):
-        text += '-s DoH 伺服器格式錯誤\n'
-        pass_flag = False
-
-    if args.benchmark and not validators.between(int(args.benchmark), min=2, max=30):
-        text += '-b benchmark 次數設定錯誤\n'
-        pass_flag = False
-
-    if not pass_flag:
+    try:
+        parse_args(cmd)
+        return True
+    except ValidationError as e:
+        msg = '\n'.join(chain.from_iterable(e.messages_dict.values()))
+        text = f'{HINT}\n{msg}'
         await message.reply_text(text)
         return False
-    return True
 
 
 async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
     # s = requests.Session()
-    async with httpx.AsyncClient() as client:
+    async with HttpClient() as client:
         return await dns.asyncquery.https(
             q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
             where=server,
-            client=client)
+            client=client,
+        )
 
 
-@Client.on_message(filters.command('doh') & filters.create(cmd_help))
+async def command_handler(cmd: List[str]):
+    args = parse_args(cmd)
+    cnt = args.benchmark or 1
+    results = [
+        await timing_handler(doh_query, should_raise=True)(
+            args.server, args.query, args.type.upper()
+        )
+        for _ in range(cnt)
+    ]
+    first_result = results[0][0]
+    # error already raised
+    assert first_result
+    answer = [first_result] if args.raw else first_result.answer
+    result_block = ''.join(
+        '<code>{result}</code>\n'.format(result=escape(r.to_text())) for r in answer
+    )
+
+    if len(results) == 1:
+        elapsed_block = f'⏳ 快樂錶: {get_elapsed_info(results[0][1])}'
+    else:
+        steps = '\n'.join(
+            f'{i}. - <code>{get_elapsed_info(elapsed)}</code>'
+            for i, (_, elapsed) in enumerate(results, 1)
+        )
+        average = round(sum(elapsed for _, elapsed in results), 3) / cnt
+        elapsed_block = '\n'.join(
+            [
+                '🏁 測試結果:',
+                f'{steps}',
+                f'\n🤌 平均: <code>{get_elapsed_info(average)}</code>',
+            ]
+        )
+    return f'{result_block}\n{elapsed_block}'
+
+
+@Client.on_message(
+    filters.command('doh')
+    & filters.create(cmd_help)  # pyright: ignore [reportGeneralTypeIssues]
+)
 async def doh(client: Bot, message: Message):
     cmd = message.text.split(' ')[1:]
-    args = parse_args(cmd)
-    start = time.time()
     try:
-        result = await doh_query(args.server, args.query, args.type.upper())
-    except ValueError:
+        result = await command_handler(cmd)
+    except Exception as e:
         await message.reply_text('查詢錯誤，請先檢查 -s 參數是否正確')
+        logger.exception(e)
         return
-    end = (time.time() - start)*1000
-    text = ''
-    if opt.slave.enable:
-        text += '🔍 子節點查詢結果:\n\n'
-        text += '📍 <code>{name} ({region})</code>\n<code>{ip}（{asn}）</code>\n\n'.format(
-            name=escape(opt.slave.name),
-            ip=client.slave.ip,
-            asn=escape(client.slave.asn),
-            region=escape(client.slave.region)
-        )
-    else:
-        text += '🔍 查詢結果:\n'
-    if args.raw:
-        text += '<code>{result}</code>\n\n'.format(result=escape(result.to_text()))
-    else:
-        for i in result.answer:
-            text += '<code>{result}</code>\n\n'.format(result=escape(i.to_text()))
-
-    if not args.benchmark:
-        text += '⏳ 快樂錶: {cons}'.format(cons=f'{round(end/1000, 2)}s' if end >= 1000 else f'{round(end, 2)}ms')
-    else:
-        text += '🏁 測試結果: \n'
-        average = 0.0
-        for i in range(1, args.benchmark + 1):
-            start = time.time()
-            await doh_query(args.server, args.query, args.type.upper())
-            end = (time.time() - start)*1000
-            average += end
-            text += '{t}. - <code>{cons}</code>\n'.format(
-                t=i,
-                cons=f'{round(end/1000, 2)}s' if end >= 1000 else f'{round(end, 2)}ms'
-            )
-        a_ = round(average / args.benchmark, 3)
-        text += '\n🤌 平均: <code>{average}</code>'.format(
-            average=f'{round(a_/1000, 2)}s' if a_ >= 1000 else f'{round(a_, 2)}ms')
+    subtitle = ''
+    standby_info = ''
+    if has_standby(client):
+        subtitle = '（子節點）'
+        standby_info = f'\n{get_standby_info(client)}'
+    title = f'🔍 查詢結果{subtitle}:'
+    text = '\n'.join(filter(bool, (title, standby_info, result)))
     await message.reply_text(text)
