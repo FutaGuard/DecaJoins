@@ -5,7 +5,7 @@ import pytest
 
 from bot.plugins.doq import HINT, cmd_help, doq, parse_args
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures('mock_tld')]
 
 
 def custom_time():
@@ -20,23 +20,21 @@ def with_hint(s):
 @pytest.mark.parametrize(
     'text, expected',
     (
-        pytest.param(
-            '/doq -q google',
-            None,
-            marks=pytest.mark.xfail(reason="tld not supported yet"),
-        ),
+        ('/doq -q gg.', None),
+        ('/doq -q google', None),
         ('/doq -q google.com', None),
         ('/doq', with_hint('缺少 -q 參數')),
-        ('/doq -q google.com -t error', with_hint('-t type 參數錯誤')),
+        ('/doq -q invalid', with_hint('-q query 網域格式錯誤')),
+        ('/doq -q google -t error', with_hint('-t type 參數錯誤')),
         (
-            '/doq -q google.com -s https://google.com',
+            '/doq -q google -s https://google.com',
             with_hint('-s DoQ 伺服器格式錯誤，應以 quic:// 作為開頭'),
         ),
-        ('/doq -q google.com -b 1', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doq -q google.com -b 31', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doq -q google.com -b error', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doq -q google.com -p error', with_hint('-p port 參數錯誤')),
-        ('/doq -q google.com -R error', with_hint('-R raw 參數錯誤')),
+        ('/doq -q google -b 1', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doq -q google -b 31', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doq -q google -b error', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doq -q google -p error', with_hint('-p port 參數錯誤')),
+        ('/doq -q google -R error', with_hint('-R raw 參數錯誤')),
     ),
 )
 async def test_cmd_help(text, expected):

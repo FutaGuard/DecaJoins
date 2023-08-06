@@ -1,8 +1,10 @@
 import logging
 import os
-from testing.utils import mockenv
+from unittest import mock
 
 import pytest
+
+from testing.utils import mockenv
 
 TEST_CONFIG = '''
 dev_mode: true
@@ -36,4 +38,12 @@ def mock_env_config(mk_config):
         with mk_config(TEST_CONFIG):
             yield
     else:
+        yield
+
+
+@pytest.fixture(scope='module')
+def mock_tld():
+    with mock.patch(
+        'bot.utils.validators.get_tld', return_value=set(['APPLE', 'GG', 'GOOGLE'])
+    ):
         yield

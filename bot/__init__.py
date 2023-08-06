@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 from typing import Optional, Union
 
-import httpx
 from pyrogram.client import Client
 from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
 from pyrogram.session.session import Session
@@ -14,6 +13,7 @@ from pyrogram.types import User
 
 from bot.config import Config, get_config
 from bot.utils.http import HttpClient
+from bot.utils.validators import get_tld
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,8 @@ class Bot(Client):
         loop: AbstractEventLoop = asyncio.get_event_loop()
         run = loop.run_until_complete
         run(self.__self_test())
+        # fetch tld on start
+        get_tld()
 
         logger.info('我就是速度~')
 

@@ -6,7 +6,7 @@ import pytest
 from bot.plugins.doh import HINT, cmd_help, doh, parse_args
 
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures('mock_tld')]
 
 
 def custom_time():
@@ -21,19 +21,17 @@ def with_hint(s):
 @pytest.mark.parametrize(
     'text, expected',
     (
-        pytest.param(
-            '/doh -q google',
-            None,
-            marks=pytest.mark.xfail(reason="tld not supported yet"),
-        ),
+        ('/doh -q gg.', None),
+        ('/doh -q google', None),
         ('/doh -q google.com', None),
         ('/doh', with_hint('缺少 -q 參數')),
-        ('/doh -q google.com -t error', with_hint('-t type 參數錯誤')),
-        ('/doh -q google.com -s 1.1.1.1', with_hint('-s DoH 伺服器格式錯誤')),
-        ('/doh -q google.com -b 1', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doh -q google.com -b 31', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doh -q google.com -b error', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doh -q google.com -R error', with_hint('-R raw 參數錯誤')),
+        ('/doh -q invalid', with_hint('-q query 網域格式錯誤')),
+        ('/doh -q google -t error', with_hint('-t type 參數錯誤')),
+        ('/doh -q google -s 1.1.1.1', with_hint('-s DoH 伺服器格式錯誤')),
+        ('/doh -q google -b 1', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doh -q google -b 31', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doh -q google -b error', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doh -q google -R error', with_hint('-R raw 參數錯誤')),
     ),
 )
 async def test_cmd_help(text, expected):

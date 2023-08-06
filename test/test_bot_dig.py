@@ -5,7 +5,7 @@ import pytest
 
 from bot.plugins.dig import HINT, cmd_help, dig, parse_args
 
-pytestmark = [pytest.mark.asyncio]
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures('mock_tld')]
 
 
 def custom_time():
@@ -20,19 +20,17 @@ def with_hint(s):
 @pytest.mark.parametrize(
     'text, expected',
     (
-        pytest.param(
-            '/dig -q google',
-            None,
-            marks=pytest.mark.xfail(reason="tld not supported yet"),
-        ),
+        ('/dig -q gg.', None),
+        ('/dig -q google', None),
         ('/dig -q google.com', None),
         ('/dig', with_hint('缺少 -q 參數')),
-        ('/dig -q google.com -t error', with_hint('-t type 參數錯誤')),
-        ('/dig -q google.com -s google', with_hint('-s UDP IP 伺服器格式錯誤')),
-        ('/dig -q google.com -b 1', with_hint('-b benchmark 次數設定錯誤')),
-        ('/dig -q google.com -b 31', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doq -q google.com -b error', with_hint('-b benchmark 次數設定錯誤')),
-        ('/doq -q google.com -R error', with_hint('-R raw 參數錯誤')),
+        ('/dig -q invalid', with_hint('-q query 網域格式錯誤')),
+        ('/dig -q google -t error', with_hint('-t type 參數錯誤')),
+        ('/dig -q google -s google', with_hint('-s UDP IP 伺服器格式錯誤')),
+        ('/dig -q google -b 1', with_hint('-b benchmark 次數設定錯誤')),
+        ('/dig -q google -b 31', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doq -q google -b error', with_hint('-b benchmark 次數設定錯誤')),
+        ('/doq -q google -R error', with_hint('-R raw 參數錯誤')),
     ),
 )
 async def test_cmd_help(text, expected):
@@ -87,9 +85,7 @@ async def test_dig(text, answer, expected):
         args = text.split(' ')[1:]
         parsed = parse_args(args)
         await dig(client, message)
-        query.assert_awaited_with(
-            parsed.server, parsed.query, parsed.type.upper()
-        )
+        query.assert_awaited_with(parsed.server, parsed.query, parsed.type.upper())
         times = parsed.benchmark or 1
         assert query.call_count == times
         assert t.call_count == times * 2
@@ -154,9 +150,7 @@ async def test_dig_standby(text, answer, expected):
         args = text.split(' ')[1:]
         parsed = parse_args(args)
         await dig(client, message)
-        query.assert_awaited_with(
-            parsed.server, parsed.query, parsed.type.upper()
-        )
+        query.assert_awaited_with(parsed.server, parsed.query, parsed.type.upper())
         times = parsed.benchmark or 1
         assert query.call_count == times
         assert t.call_count == times * 2

@@ -1,4 +1,5 @@
 import ssl
+from httpx import HTTPError, _api as http  # noqa: F401
 
 from httpx import AsyncClient
 
