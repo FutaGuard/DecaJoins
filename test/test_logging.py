@@ -15,6 +15,7 @@ def test_configure(get_config, coloredlogs, logging, path):
     log_config = {
         'version': 1,
         'root': {'handlers': ['file'], 'level': level},
+        'loggers': {'bot': {}},
         'handlers': {
             'file': {
                 'formatter': 'file',
@@ -46,6 +47,7 @@ def test_without_file_handler(get_config, coloredlogs, logging, path):
     log_config = {
         'version': 1,
         'root': {'handlers': [], 'level': level},
+        'loggers': {'bot': {}},
         'handlers': {},
         'formatters': {},
     }
@@ -77,3 +79,10 @@ def test_capability(get_config, caplog, tmp_path, default_logging_handlers):
     text = logfile.read_text()
     assert 'info-log-test' in text
     assert 'warn-log-test2' in text
+
+    # check bot logger
+    caplog.clear()
+    logging.getLogger('bot').info("bot-log-test")
+    assert 'bot-log-test' in caplog.messages
+    logging.getLogger('bot.plugins.dig').info('bot-plugins-dig-test')
+    assert 'bot-plugins-dig-test' in caplog.messages

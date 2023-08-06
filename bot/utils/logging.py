@@ -12,7 +12,11 @@ def configure():
     level = config.log.level
     log_config = {
         'version': 1,
-        'root': {'handlers': [], 'level': level},
+        'root': {
+            'handlers': [],
+            'level': level,
+        },
+        'loggers': {'bot': {}},
         'handlers': {},
         'formatters': {},
     }
