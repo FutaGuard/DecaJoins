@@ -18,8 +18,8 @@ def get_standby_info(client: "Bot"):
         assert client.standby
         name = escape(client.config.standby.name or '')
         ip = client.standby.ip
-        asn = escape(client.standby.asn)
-        region = escape(client.standby.region)
+        asn = escape(client.standby.asn_org)
+        region = escape(client.standby.country)
         return f'''\
 📍 <code>{name} ({region})</code>
 <code>{ip}（{asn}）</code>
