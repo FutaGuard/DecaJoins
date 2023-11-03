@@ -125,7 +125,7 @@ async def cmd_help(_, __, message: Message):
 
 async def doh_query(server: str, query: str, types: str) -> dns.message.Message:
     # s = requests.Session()
-    async with HttpClient() as client:
+    async with HttpClient(follow_redirects=True) as client:
         return await dns.asyncquery.https(
             q=dns.message.make_query(query, getattr(dns.rdatatype, types)),
             where=server,
