@@ -21,15 +21,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Standby:
     ip: str
-    asn: str
-    region: str
+    asn_org: str
+    country: str
 
 
 @dataclass
-class IpInfo:
+class IpConfig:
     ip: str
-    org: str
-    region: str
+    asn_org: str
+    country: str
 
 
 class Bot(Client):
@@ -65,20 +65,22 @@ class Bot(Client):
     async def __get_standby(self):
         if not self.config.standby.enable:
             return None
-        info: Optional[IpInfo] = None
+        info: Optional[IpConfig, dict] = None
         try:
             async with HttpClient() as s:
-                r = await s.get('https://ipinfo.io')
+                r = await s.get('https://ipconfig.io/json', timeout=5)
                 info = r.json()
         except JSONDecodeError:
-            logger.error('ipinfo API Error')
+            logger.error('ipconfig.io API Error')
             return None
+        else:
+            info = IpConfig(ip=info['ip'], asn_org=info['asn_org'], country=info['country'])
         if info:
-            ip = info['ip'].split('.')
+            ip = info.ip.split('.')
             ip[-1] = '0'
             ip[-2] = '0'
             self.standby = Standby(
-                ip='.'.join(e for e in ip), asn=info['org'], region=info['region']
+                ip='.'.join(e for e in ip), asn_org=info.asn_org, country=info.country
             )
             logger.info(self.standby)
 
