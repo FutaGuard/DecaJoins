@@ -11,6 +11,8 @@ from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
 from pyrogram.session.session import Session
 from pyrogram.types import User
 
+import validators
+
 from bot.config import Config, get_config
 from bot.utils.http import HttpClient
 from bot.utils.validators import get_tld
@@ -76,9 +78,14 @@ class Bot(Client):
         else:
             info = IpConfig(ip=info['ip'], asn_org=info['asn_org'], country=info['country'])
         if info:
-            ip = info.ip.split('.')
-            ip[-1] = '0'
-            ip[-2] = '0'
+            if validators.ipv4(info.ip):
+                ip = info.ip.split('.')
+                ip[-1] = '0'
+                ip[-2] = '0'
+            else:
+                ip = info.ip.split(':')
+                ip[-1] = '0000'
+                ip[-2] = '0000'
             self.standby = Standby(
                 ip='.'.join(e for e in ip), asn_org=info.asn_org, country=info.country
             )
