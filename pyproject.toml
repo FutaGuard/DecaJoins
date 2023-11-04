@@ -15,10 +15,10 @@ dataclasses-json = "^0.5.8"
 dnspython = "^2.3.0"
 requests-toolbelt = "^1.0.0"
 parse = "^1.19.1"
-validators = {git = "https://github.com/python-validators/validators", rev = "latest"}
 httpx = "^0.24.1"
 aioquic = "^0.9.20"
 aiohttp = "^3.8.4"
+validators = "^0.22.0"
 
 [tool.poetry.dev-dependencies]
 
