@@ -1,15 +1,17 @@
-import ssl
-from httpx import HTTPError, _api as http  # noqa: F401
-
-from httpx import AsyncClient
-
-# cache ssl context for perf
-# See: https://github.com/encode/httpx/issues/838#issuecomment-1291224189
-context = ssl.create_default_context()
+import httpx
 
 
-class HttpClient(AsyncClient):
-    def __init__(self, *, verify=context, **kw):
-        if verify is not False:
-            verify = verify or context
-        super().__init__(verify=verify, **kw)
+class HttpClient:
+    """Async HTTP client context manager backed by httpx."""
+
+    def __init__(self, **kwargs):
+        self._kwargs = kwargs
+        self._client: httpx.AsyncClient | None = None
+
+    async def __aenter__(self) -> httpx.AsyncClient:
+        self._client = httpx.AsyncClient(**self._kwargs)
+        return self._client
+
+    async def __aexit__(self, *_) -> None:
+        if self._client:
+            await self._client.aclose()

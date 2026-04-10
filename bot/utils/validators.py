@@ -1,53 +1,36 @@
-from typing import Any, Callable, TypeVar
+import urllib.request
+from functools import lru_cache
+from pathlib import Path
 
-import validators
-from coloredlogs import logging
-
-from bot.utils.http import HTTPError, http
-
-logger = logging.getLogger(__name__)
-
-T = TypeVar('T')
+_TLD_URL = "https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
+_TLD_CACHE = Path("/tmp/tlds.txt")
 
 
-def bool_wrapper(validator: Callable[[T], Any]):
-    def inner(v: T):
-        return bool(validator(v))
-
-    return inner
-
-
-def is_quic(v: str):
-    return v.startswith('quic://')
-
-
-def is_ip(s: str):
-    return bool(validators.ipv4(s)) or bool(validators.ipv6(s))
-
-
-_TLD = set()
-
-
-# lazy initialized
-def get_tld(*, force: bool = False):
-    global _TLD
-    if not _TLD or force:
+@lru_cache(maxsize=1)
+def get_tld() -> frozenset[str]:
+    """Fetch and cache the IANA TLD list."""
+    if _TLD_CACHE.exists():
+        raw = _TLD_CACHE.read_text(encoding="utf-8")
+    else:
         try:
-            response = http.get('https://data.iana.org/TLD/tlds-alpha-by-domain.txt')
-            response.raise_for_status()
-            data = response.text
-        except HTTPError as e:
-            logger.exception(e)
-        else:
-            _TLD = set(data.split('\n'))
-    return _TLD
+            with urllib.request.urlopen(_TLD_URL, timeout=5) as resp:
+                raw = resp.read().decode("utf-8")
+            _TLD_CACHE.write_text(raw, encoding="utf-8")
+        except Exception:
+            return frozenset()
 
-
-def is_domain(s: str):
-    return (
-        bool(validators.domain(s, rfc_1034=True, rfc_2782=True))
-        or s.rstrip('.').upper() in get_tld()
+    return frozenset(
+        line.strip().lower()
+        for line in raw.splitlines()
+        if line.strip() and not line.startswith("#")
     )
 
 
-is_url = bool_wrapper(validators.url)
+def is_valid_domain(domain: str) -> bool:
+    parts = domain.rstrip(".").split(".")
+    if len(parts) < 2:
+        return False
+    tlds = get_tld()
+    if not tlds:
+        return True  # can't validate without list
+    return parts[-1].lower() in tlds

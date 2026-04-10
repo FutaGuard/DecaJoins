@@ -1,52 +1,26 @@
 import logging
-import logging.config
-from pathlib import Path
+import sys
 
-import coloredlogs
-
-from bot.config import get_config
+from loguru import logger
 
 
-def configure():
-    config = get_config()
-    level = config.log.level
-    log_config = {
-        'version': 1,
-        'root': {
-            'handlers': [],
-            'level': level,
-        },
-        'loggers': {'bot': {}},
-        'handlers': {},
-        'formatters': {},
-    }
-    if config.log.logfile and config.log.logfile != '':
-        try:
-            filename = Path(config.log.logfile)
-            if not filename.exists():
-                basedir = (filename / '..').resolve()
-                basedir.mkdir(parents=True, exist_ok=True)
-                filename.touch()
-        except (TypeError, OSError):
-            raise
-        log_config['handlers'].update(
-            {
-                'file': {
-                    'formatter': 'file',
-                    'class': 'logging.FileHandler',
-                    'level': level,
-                    'filename': filename.as_posix(),
-                },
-            }
-        )
-        log_config['formatters'].update(
-            {
-                'file': {
-                    'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                }
-            }
-        )
-        log_config['root']['handlers'].append('file')
+def configure(level: str = "DEBUG") -> None:
+    """Configure loguru logger and intercept standard logging."""
 
-    logging.config.dictConfig(log_config)
-    coloredlogs.install(level=level)
+    class InterceptHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            try:
+                lvl = logger.level(record.levelname).name
+            except ValueError:
+                lvl = record.levelno  # type: ignore[assignment]
+            frame, depth = logging.currentframe(), 2
+            while frame and frame.f_code.co_filename == logging.__file__:
+                frame = frame.f_back  # type: ignore[assignment]
+                depth += 1
+            logger.opt(depth=depth, exception=record.exc_info).log(
+                lvl, record.getMessage()
+            )
+
+    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+    logger.remove()
+    logger.add(sys.stderr, level=level, colorize=True)

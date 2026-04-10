@@ -1,23 +1,24 @@
 import asyncio
-import logging
 import sys
 from asyncio import AbstractEventLoop
 from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 from typing import Optional, Union
 
+import uvicorn
+import validators
+from loguru import logger
 from pyrogram.client import Client
 from pyrogram.errors import ApiIdInvalid, AuthKeyUnregistered
 from pyrogram.session.session import Session
 from pyrogram.types import User
 
-import validators
-
 from bot.config import Config, get_config
+from bot.node.host import create_app
+from bot.node.manager import manager
 from bot.utils.http import HttpClient
+from bot.utils.logging import configure
 from bot.utils.validators import get_tld
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -42,11 +43,11 @@ class Bot(Client):
     def __init__(self):
         self.config = config = get_config()
         super().__init__(
-            name='bot',
+            name="bot",
             api_id=config.bot.api_id,
             api_hash=config.bot.api_hash,
             bot_token=config.bot.bot_token,
-            plugins=dict(root='bot/plugins'),
+            plugins=dict(root="bot/plugins"),
         )
 
     def __new__(cls, *args, **kwargs):
@@ -54,56 +55,59 @@ class Bot(Client):
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    async def __get_me(self):
+    async def __get_me(self) -> None:
         me: User = await self.get_me()
-        info_str: str = (
-            f'[Listening] {me.first_name} {me.last_name or ""}'
-            f' (@{me.username or ""}) ID: {me.id}'
+        logger.info(
+            f"[Listening] {me.first_name} {me.last_name or ''}"
+            f" (@{me.username or ''}) ID: {me.id}"
         )
+        self.me = me  # type: ignore[override]
 
-        logger.info(info_str)
-        self.me: User = me
-
-    async def __get_standby(self):
+    async def __get_standby(self) -> None:
         if not self.config.standby.enable:
-            return None
-        info: Optional[IpConfig, dict] = None
+            return
         try:
             async with HttpClient() as s:
-                r = await s.get('https://ipconfig.io/json', timeout=5)
-                info = r.json()
-        except JSONDecodeError:
-            logger.error('ipconfig.io API Error')
-            return None
-        else:
-            info = IpConfig(ip=info['ip'], asn_org=info['asn_org'], country=info['country'])
-        if info:
-            if validators.ipv4(info.ip):
-                ip = info.ip.split('.')
-                ip[-1] = '0'
-                ip[-2] = '0'
-            else:
-                ip = info.ip.split(':')
-                ip[-1] = '0000'
-                ip[-2] = '0000'
-            self.standby = Standby(
-                ip='.'.join(e for e in ip), asn_org=info.asn_org, country=info.country
-            )
-            logger.info(self.standby)
+                r = await s.get("https://ipconfig.io/json", timeout=5)
+                info_raw = r.json()
+        except (JSONDecodeError, Exception) as e:
+            logger.error(f"ipconfig.io API Error: {e}")
+            return
 
-    async def __self_test(self):
-        # Disable notice
-        Session.notice_displayed = True
+        info = IpConfig(
+            ip=info_raw["ip"],
+            asn_org=info_raw["asn_org"],
+            country=info_raw["country"],
+        )
+        if validators.ipv4(info.ip):
+            parts = info.ip.split(".")
+            parts[-1] = "0"
+            parts[-2] = "0"
+            masked = ".".join(parts)
+        else:
+            parts = info.ip.split(":")
+            parts[-1] = "0000"
+            parts[-2] = "0000"
+            masked = ":".join(parts)
+
+        self.standby = Standby(ip=masked, asn_org=info.asn_org, country=info.country)
+        logger.info(f"Standby: {self.standby}")
+
+    async def __self_test(self) -> None:
+        # Suppress the pyrogram startup notice if the attribute exists
+        try:
+            Session.notice_displayed = True  # type: ignore[attr-defined]
+        except AttributeError:
+            pass
         try:
             await self.start()
         except (ApiIdInvalid, AttributeError):
-            logger.critical('!!! API ID is invalid !!!')
+            logger.critical("!!! API ID is invalid !!!")
             sys.exit(1)
         except AuthKeyUnregistered:
-            logger.critical('!!! Session expired !!!')
-            logger.critical("      Removing old session and exiting!")
+            logger.critical("!!! Session expired, removing and exiting !!!")
             await self.storage.delete()
-            exit(1)
+            sys.exit(1)
 
         try:
             await self.__get_me()
@@ -114,16 +118,34 @@ class Bot(Client):
             await self.__get_standby()
         except Exception as e:
             logger.exception(e)
-            sys.exit(1)
+
         await self.stop()
 
-    def start_serve(self):
+    async def _run_host(self) -> None:
+        """Run bot + FastAPI server together when node.mode == 'host'."""
+        cfg = self.config.node.host
+        uv_config = uvicorn.Config(
+            create_app(),
+            host=cfg.bind,
+            port=cfg.port,
+            log_level="warning",
+        )
+        server = uvicorn.Server(uv_config)
+        manager.start()
+        logger.info(f"Node hub listening on {cfg.bind}:{cfg.port}")
+        try:
+            await asyncio.gather(self.start(), server.serve())
+        finally:
+            manager.stop()
+
+    def start_serve(self) -> None:
+        configure(self.config.log.level)
         loop: AbstractEventLoop = asyncio.get_event_loop()
-        run = loop.run_until_complete
-        run(self.__self_test())
-        # fetch tld on start
+        loop.run_until_complete(self.__self_test())
         get_tld()
+        logger.info("我就是速度~")
 
-        logger.info('我就是速度~')
-
-        self.run()
+        if self.config.node.mode == "host":
+            loop.run_until_complete(self._run_host())
+        else:
+            self.run()
