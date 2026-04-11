@@ -1,0 +1,132 @@
+name: Build and Release Client
+
+on:
+  push:
+    tags:
+      - 'client-v*.*.*'  # 觸發條件：推送 client-v1.0.0 格式的 tag
+  workflow_dispatch:      # 允許手動觸發
+
+permissions:
+  contents: write         # 需要寫入權限來建立 release
+
+jobs:
+  build:
+    name: Build Client Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            output: decajoins-client-linux-amd64
+          - goos: linux
+            goarch: arm64
+            output: decajoins-client-linux-arm64
+          - goos: windows
+            goarch: amd64
+            output: decajoins-client-windows-amd64.exe
+          - goos: darwin
+            goarch: amd64
+            output: decajoins-client-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            output: decajoins-client-darwin-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: client/go.sum
+
+      - name: Build binary
+        working-directory: ./client
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -buildvcs=false -ldflags="-s -w" -o ${{ matrix.output }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.output }}
+          path: client/${{ matrix.output }}
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec mv {} release/ \;
+          cd release
+          # Create SHA256 checksums
+          sha256sum * > SHA256SUMS.txt
+          ls -lh
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/client-v}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Client v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## DecaJoins Client v${{ steps.get_version.outputs.VERSION }}
+
+            ### 下載與使用
+
+            1. 根據你的作業系統選擇對應的檔案：
+               - **Linux (amd64)**: `decajoins-client-linux-amd64`
+               - **Linux (arm64)**: `decajoins-client-linux-arm64`
+               - **Windows (amd64)**: `decajoins-client-windows-amd64.exe`
+               - **macOS (Intel)**: `decajoins-client-darwin-amd64`
+               - **macOS (Apple Silicon)**: `decajoins-client-darwin-arm64`
+
+            2. 賦予執行權限（Linux/macOS）：
+               ```bash
+               chmod +x decajoins-client-*
+               ```
+
+            3. 建立 `config.yml`（參考 [config.example.yml](https://github.com/${{ github.repository }}/blob/main/client/config.example.yml)）
+
+            4. 執行：
+               ```bash
+               ./decajoins-client-* -config config.yml
+               ```
+
+            ### 校驗檔案完整性
+
+            下載 `SHA256SUMS.txt` 並驗證：
+            ```bash
+            sha256sum -c SHA256SUMS.txt
+            ```
+
+            ---
+
+            **完整文件**: [client/README.md](https://github.com/${{ github.repository }}/blob/main/client/README.md)
+          files: |
+            release/*
+          draft: false
+          prerelease: false
+          generate_release_notes: false
